@@ -682,6 +682,14 @@ canvas {
   font-weight: 700;
 }
 
+.currency-button:hover,
+.currency-button:focus-visible,
+.currency-button.active {
+  border-color: var(--accent);
+  background: rgba(94, 234, 212, 0.14);
+  outline: none;
+}
+
 .currency-button img,
 .currency-option img {
   width: 24px;
@@ -746,6 +754,11 @@ canvas {
 .currency-option:hover,
 .currency-option:focus-visible {
   background: rgba(94, 234, 212, 0.12);
+}
+
+.currency-option.selected {
+  background: rgba(94, 234, 212, 0.18);
+  color: var(--accent);
 }
 
 .currency-option span {
@@ -924,6 +937,15 @@ canvas {
   color: var(--accent);
   border: 1px solid var(--border);
   font-size: 1.35rem;
+}
+
+.home-button:hover,
+.home-button:focus-visible,
+.home-button.active {
+  border-color: var(--accent);
+  background: rgba(94, 234, 212, 0.14);
+  box-shadow: 0 0 18px rgba(94, 234, 212, 0.2);
+  outline: none;
 }
 
 .view {

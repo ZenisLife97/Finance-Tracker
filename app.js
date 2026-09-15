@@ -149,6 +149,7 @@ let pendingDeleteId = null;
 let pendingDeleteType = null;
 let editingGoalId = null;
 let editingEventId = null;
+let historyReady = false;
 
 refs.spendingDate.value = todayValue();
 refs.incomeDate.value = todayValue();
@@ -161,23 +162,54 @@ closeEventDatePicker();
 renderEventCalendar();
 
 refs.viewButtons.forEach((button) => {
-  button.addEventListener("click", () => showView(button.dataset.view));
+  button.addEventListener("click", () => navigateToView(button.dataset.view));
   button.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
-    showView(button.dataset.view);
+    navigateToView(button.dataset.view);
   });
 });
 
 refs.entryTypeButton.addEventListener("click", () => {
   setEntryType(refs.entryTypeLabel.textContent === "Expense" ? "income" : "expense");
 });
+initializeViewHistory();
 showView(activeView);
+
+refs.homeButton.addEventListener("click", () => navigateToView("dashboard"));
+
+window.addEventListener("popstate", (event) => {
+  if (event.state?.exitBoundary) {
+    const shouldExit = window.confirm("Exit Finance Tracker?");
+    if (!shouldExit) {
+      history.pushState({ view: "dashboard" }, "", window.location.href);
+    }
+    return;
+  }
+
+  const viewName = event.state?.view;
+  if (viewName) {
+    showView(viewName);
+    return;
+  }
+
+  if (activeView !== "dashboard") {
+    showView("dashboard");
+    return;
+  }
+
+  const shouldExit = window.confirm("Exit Finance Tracker?");
+  if (!shouldExit) {
+    history.pushState({ view: "dashboard", guard: true }, "", window.location.href);
+  }
+});
 
 refs.currencyButton.addEventListener("click", () => {
   const opening = refs.currencyMenu.hidden;
   refs.currencyMenu.hidden = !opening;
   refs.currencyButton.setAttribute("aria-expanded", String(opening));
+  refs.currencyButton.setAttribute("aria-pressed", String(opening));
+  refs.currencyButton.classList.toggle("active", opening);
 });
 
 refs.currencyMenu.addEventListener("click", (event) => {
@@ -187,6 +219,8 @@ refs.currencyMenu.addEventListener("click", (event) => {
   updateCurrencyButton();
   refs.currencyMenu.hidden = true;
   refs.currencyButton.setAttribute("aria-expanded", "false");
+  refs.currencyButton.setAttribute("aria-pressed", "false");
+  refs.currencyButton.classList.remove("active");
   saveState();
   render();
 });
@@ -195,6 +229,8 @@ document.addEventListener("click", (event) => {
   if (!event.target.closest(".currency-control")) {
     refs.currencyMenu.hidden = true;
     refs.currencyButton.setAttribute("aria-expanded", "false");
+    refs.currencyButton.setAttribute("aria-pressed", "false");
+    refs.currencyButton.classList.remove("active");
   }
 });
 
@@ -563,11 +599,27 @@ function showView(viewName) {
   activeView = titles[viewName] ? viewName : "dashboard";
   refs.pageTitle.textContent = titles[activeView];
   refs.viewPanels.forEach((panel) => panel.classList.toggle("active", panel.dataset.viewPanel === activeView));
-  refs.viewButtons.forEach((button) => button.classList.toggle("active", button.dataset.view === activeView));
+  refs.viewButtons.forEach((button) => {
+    const isActive = button.dataset.view === activeView;
+    button.classList.toggle("active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
   const isDashboard = activeView === "dashboard";
-  refs.homeButton.hidden = isDashboard;
+  refs.homeButton.hidden = false;
   refs.currencyControl.hidden = !isDashboard;
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function initializeViewHistory() {
+  history.replaceState({ view: "dashboard", exitBoundary: true }, "", window.location.href);
+  history.pushState({ view: "dashboard" }, "", window.location.href);
+  historyReady = true;
+}
+
+function navigateToView(viewName) {
+  if (!historyReady || viewName === activeView) return;
+  history.pushState({ view: viewName }, "", window.location.href);
+  showView(viewName);
 }
 
 function setEntryType(type) {
@@ -1060,6 +1112,11 @@ function updateCurrencyButton() {
   refs.currencyLabel.textContent = option[0];
   refs.currencyFlag.src = flagImageUrl(option[0]);
   refs.currencyFlag.alt = `${option[1]} flag`;
+  refs.currencyMenu.querySelectorAll("[data-currency]").forEach((currencyOption) => {
+    const isSelected = currencyOption.dataset.currency === option[0];
+    currencyOption.classList.toggle("selected", isSelected);
+    currencyOption.setAttribute("aria-selected", String(isSelected));
+  });
 }
 
 function flagImageUrl(currency) {
