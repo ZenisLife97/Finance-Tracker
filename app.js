@@ -100,7 +100,6 @@ const refs = {
   budgetTotal: document.getElementById("budgetTotal"),
   dashboardMonth: document.getElementById("dashboardMonth"),
   pageTitle: document.getElementById("pageTitle"),
-  homeButton: document.getElementById("homeButton"),
   currencyControl: document.getElementById("currencyControl"),
   viewButtons: document.querySelectorAll("[data-view]"),
   viewPanels: document.querySelectorAll("[data-view-panel]"),
@@ -131,7 +130,10 @@ const refs = {
   currencyFlag: document.getElementById("currencyFlag"),
   currencyLabel: document.getElementById("currencyLabel"),
   currencyMenu: document.getElementById("currencyMenu"),
-  confirmationToast: document.getElementById("confirmationToast")
+  confirmationToast: document.getElementById("confirmationToast"),
+  exitModal: document.getElementById("exitModal"),
+  cancelExit: document.getElementById("cancelExit"),
+  confirmExit: document.getElementById("confirmExit")
   ,deleteModal: document.getElementById("deleteModal")
   ,deleteModalTitle: document.getElementById("deleteModalTitle")
   ,deleteModalDescription: document.getElementById("deleteModalDescription")
@@ -150,6 +152,7 @@ let pendingDeleteType = null;
 let editingGoalId = null;
 let editingEventId = null;
 let historyReady = false;
+let exitRequested = false;
 
 refs.spendingDate.value = todayValue();
 refs.incomeDate.value = todayValue();
@@ -173,17 +176,37 @@ refs.viewButtons.forEach((button) => {
 refs.entryTypeButton.addEventListener("click", () => {
   setEntryType(refs.entryTypeLabel.textContent === "Expense" ? "income" : "expense");
 });
+
 initializeViewHistory();
 showView(activeView);
 
-refs.homeButton.addEventListener("click", () => navigateToView("dashboard"));
+window.addEventListener("pageshow", syncLocalData);
+window.addEventListener("pagehide", syncLocalData);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") syncLocalData();
+});
+window.addEventListener("storage", (event) => {
+  if (event.key !== STORAGE_KEY || !event.newValue) return;
+  Object.assign(state, loadState());
+  updateCurrencyButton();
+  render();
+});
+
+refs.cancelExit.addEventListener("click", closeExitModal);
+refs.confirmExit.addEventListener("click", () => {
+  exitRequested = true;
+  closeExitModal();
+  history.back();
+});
+refs.exitModal.addEventListener("click", (event) => {
+  if (event.target === refs.exitModal) closeExitModal();
+});
 
 window.addEventListener("popstate", (event) => {
   if (event.state?.exitBoundary) {
-    const shouldExit = window.confirm("Exit Finance Tracker?");
-    if (!shouldExit) {
-      history.pushState({ view: "dashboard" }, "", window.location.href);
-    }
+    if (exitRequested) return;
+    history.pushState({ view: "dashboard" }, "", window.location.href);
+    refs.exitModal.hidden = false;
     return;
   }
 
@@ -198,10 +221,8 @@ window.addEventListener("popstate", (event) => {
     return;
   }
 
-  const shouldExit = window.confirm("Exit Finance Tracker?");
-  if (!shouldExit) {
-    history.pushState({ view: "dashboard", guard: true }, "", window.location.href);
-  }
+  history.pushState({ view: "dashboard" }, "", window.location.href);
+  refs.exitModal.hidden = false;
 });
 
 refs.currencyButton.addEventListener("click", () => {
@@ -605,7 +626,6 @@ function showView(viewName) {
     button.setAttribute("aria-pressed", String(isActive));
   });
   const isDashboard = activeView === "dashboard";
-  refs.homeButton.hidden = false;
   refs.currencyControl.hidden = !isDashboard;
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -620,6 +640,133 @@ function navigateToView(viewName) {
   if (!historyReady || viewName === activeView) return;
   history.pushState({ view: viewName }, "", window.location.href);
   showView(viewName);
+}
+
+function closeExitModal() {
+  refs.exitModal.hidden = true;
+}
+
+function syncLocalData() {
+  saveState();
+}
+
+async function importDataFromCsv(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  try {
+    const rows = parseCsv(await file.text());
+    const importedState = stateFromCsvRows(rows);
+    Object.assign(state, importedState);
+    saveState();
+    updateCurrencyButton();
+    render();
+    showConfirmation("CSV data imported successfully");
+  } catch (error) {
+    showConfirmation(error.message || "Could not import CSV data");
+  } finally {
+    event.target.value = "";
+  }
+}
+
+function stateFromCsvRows(rows) {
+  if (!rows.length || !Object.hasOwn(rows[0], "record_type")) {
+    throw new Error("This CSV is missing the record_type column");
+  }
+
+  const importedState = cloneDefaultState();
+  importedState.budgets = {};
+  importedState.currency = CURRENCY_OPTIONS.some(([code]) => code === rows.find((row) => CURRENCY_OPTIONS.some(([option]) => option === row.currency))?.currency)
+    ? rows.find((row) => row.currency)?.currency
+    : DEFAULT_CURRENCY;
+  let importedRecords = 0;
+
+  rows.forEach((row) => {
+    const type = row.record_type?.trim();
+    const amount = getImportedAmount(row, "amount");
+    const budget = getImportedAmount(row, "budget");
+    const target = getImportedAmount(row, "target");
+    const saved = getImportedAmount(row, "saved");
+
+    if (type === "expense" && row.category && row.date && amount !== null) {
+      importedState.spendings.push({ id: row.id || createId(), category: row.category, amount, date: row.date, note: row.note || "" });
+      importedRecords += 1;
+    } else if (type === "income" && row.category && row.date && amount !== null) {
+      importedState.incomes.push({ id: row.id || createId(), source: row.category, amount, date: row.date, note: row.note || "" });
+      importedRecords += 1;
+    } else if (type === "budget" && row.category && budget !== null) {
+      importedState.budgets[row.category] = budget;
+      importedRecords += 1;
+    } else if (type === "monthly_budget" && row.month && row.category && budget !== null) {
+      if (!importedState.monthlyBudgets[row.month]) importedState.monthlyBudgets[row.month] = {};
+      importedState.monthlyBudgets[row.month][row.category] = budget;
+      importedRecords += 1;
+    } else if (type === "monthly_total" && row.month && budget !== null) {
+      importedState.monthlyTotals[row.month] = budget;
+      importedRecords += 1;
+    } else if (type === "goal" && row.description && target !== null && saved !== null) {
+      importedState.goals.push({ id: row.id || createId(), name: row.description, target, saved, deadline: row.deadline || "" });
+      importedRecords += 1;
+    } else if (type === "event" && row.description && row.month && budget !== null) {
+      importedState.events.push({
+        id: row.id || createId(),
+        name: row.description,
+        month: row.month,
+        budget,
+        dates: (row.selected_dates || "").split(";").map((date) => date.trim()).filter(Boolean)
+      });
+      importedRecords += 1;
+    }
+  });
+
+  if (!importedRecords) throw new Error("No supported finance records were found");
+  return importedState;
+}
+
+function getImportedAmount(row, field) {
+  const baseValue = Number(row[`${field}_base_usd`]);
+  if (Number.isFinite(baseValue)) return baseValue;
+  const displayValue = Number(row[field]);
+  if (!Number.isFinite(displayValue)) return null;
+  const currency = CURRENCY_OPTIONS.some(([code]) => code === row.currency) ? row.currency : DEFAULT_CURRENCY;
+  return displayValue / (rates[currency] || FALLBACK_RATES[currency] || 1);
+}
+
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let value = "";
+  let quoted = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    const nextCharacter = text[index + 1];
+    if (character === '"' && quoted && nextCharacter === '"') {
+      value += '"';
+      index += 1;
+    } else if (character === '"') {
+      quoted = !quoted;
+    } else if (character === "," && !quoted) {
+      row.push(value);
+      value = "";
+    } else if ((character === "\n" || character === "\r") && !quoted) {
+      if (character === "\r" && nextCharacter === "\n") index += 1;
+      row.push(value);
+      if (row.some((cell) => cell !== "")) rows.push(row);
+      row = [];
+      value = "";
+    } else {
+      value += character;
+    }
+  }
+  row.push(value);
+  if (row.some((cell) => cell !== "")) rows.push(row);
+
+  const headers = rows.shift()?.map((header) => header.replace(/^\uFEFF/, "").trim()) || [];
+  return rows.map((cells) => headers.reduce((record, header, index) => {
+    record[header] = cells[index] || "";
+    return record;
+  }, {}));
 }
 
 function setEntryType(type) {

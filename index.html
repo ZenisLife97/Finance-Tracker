@@ -24,6 +24,15 @@
         </div>
       </section>
     </div>
+    <div id="exitModal" class="modal-backdrop" role="presentation" hidden>
+      <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="exitModalTitle">
+        <h2 id="exitModalTitle">Exit Finance Tracker?</h2>
+        <div class="modal-actions">
+          <button id="cancelExit" class="ghost modal-cancel" type="button">Cancel</button>
+          <button id="confirmExit" class="danger-button" type="button">Exit</button>
+        </div>
+      </section>
+    </div>
     <main class="app-shell">
       <header class="app-header">
         <div>
@@ -31,7 +40,6 @@
           <h1 id="pageTitle">Overview</h1>
           <p class="status-line"><span aria-hidden="true"></span> Local data <strong>•</strong> Sync ready</p>
         </div>
-        <button id="homeButton" class="home-button" type="button" data-view="dashboard" aria-label="Go to overview" aria-pressed="true">⌂</button>
         <div id="currencyControl" class="currency-control">
           <span class="sr-only">Display currency</span>
           <button id="currencyButton" class="currency-button" type="button" aria-haspopup="listbox" aria-expanded="false" aria-pressed="false">
