@@ -1,4 +1,4 @@
-const CACHE_NAME = "finance-tracker-cache-v18";
+const CACHE_NAME = "finance-tracker-cache-v17";
 const ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", (event) => {

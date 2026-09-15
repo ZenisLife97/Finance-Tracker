@@ -29,6 +29,7 @@
         <h2 id="exitModalTitle">Exit Finance Tracker?</h2>
         <div class="modal-actions">
           <button id="cancelExit" class="ghost modal-cancel" type="button">Cancel</button>
+          <button id="confirmExit" class="danger-button" type="button">Exit</button>
         </div>
       </section>
     </div>
@@ -39,20 +40,15 @@
           <h1 id="pageTitle">Overview</h1>
           <p class="status-line"><span aria-hidden="true"></span> Local data <strong>•</strong> Sync ready</p>
         </div>
-          <div class="header-actions">
-            <button id="assistantButton" class="assistant-button" type="button" data-view="assistant" aria-label="Open AI assistant" title="Open AI assistant">
-              <span aria-hidden="true">✦</span><span>Ask AI</span>
-            </button>
-            <div id="currencyControl" class="currency-control">
-              <span class="sr-only">Display currency</span>
-              <button id="currencyButton" class="currency-button" type="button" aria-haspopup="listbox" aria-expanded="false" aria-pressed="false">
-                <img id="currencyFlag" src="https://flagcdn.com/w40/my.png" alt="" />
-                <span id="currencyLabel">MYR</span>
-                <span class="currency-chevron" aria-hidden="true">▾</span>
-              </button>
-              <div id="currencyMenu" class="currency-menu" role="listbox" hidden></div>
-            </div>
-          </div>
+        <div id="currencyControl" class="currency-control">
+          <span class="sr-only">Display currency</span>
+          <button id="currencyButton" class="currency-button" type="button" aria-haspopup="listbox" aria-expanded="false" aria-pressed="false">
+            <img id="currencyFlag" src="https://flagcdn.com/w40/my.png" alt="" />
+            <span id="currencyLabel">MYR</span>
+            <span class="currency-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div id="currencyMenu" class="currency-menu" role="listbox" hidden></div>
+        </div>
       </header>
 
       <section class="view active" data-view-panel="dashboard">
@@ -274,29 +270,6 @@
         </article>
         </div>
       </section>
-        <section class="view" data-view-panel="assistant">
-          <article class="assistant-panel">
-            <div class="assistant-heading">
-              <div class="assistant-avatar" aria-hidden="true">✦</div>
-              <div>
-                <h2>Finance AI</h2>
-                <p><span class="assistant-online-dot" aria-hidden="true"></span> Ready to help with your money</p>
-              </div>
-            </div>
-            <div id="assistantMessages" class="assistant-messages" aria-live="polite">
-              <div class="assistant-message assistant-message-ai">
-                <div class="message-avatar" aria-hidden="true">✦</div>
-                <div class="message-bubble">Hi! I can help you understand your spending, budget, and goals. What would you like to know?</div>
-              </div>
-            </div>
-            <form id="assistantForm" class="assistant-composer">
-              <label class="sr-only" for="assistantInput">Message Finance AI</label>
-              <input id="assistantInput" type="text" placeholder="Ask about your finances..." autocomplete="off" maxlength="1000" required />
-              <button type="submit" aria-label="Send message" title="Send message">➤</button>
-            </form>
-            <p class="assistant-disclaimer">AI answers are estimates, not financial advice.</p>
-          </article>
-        </section>
     </main>
 
     <script src="app.js"></script>

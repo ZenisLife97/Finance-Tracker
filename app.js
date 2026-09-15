@@ -100,9 +100,6 @@ const refs = {
   budgetTotal: document.getElementById("budgetTotal"),
   dashboardMonth: document.getElementById("dashboardMonth"),
   pageTitle: document.getElementById("pageTitle"),
-  assistantForm: document.getElementById("assistantForm"),
-  assistantInput: document.getElementById("assistantInput"),
-  assistantMessages: document.getElementById("assistantMessages"),
   currencyControl: document.getElementById("currencyControl"),
   viewButtons: document.querySelectorAll("[data-view]"),
   viewPanels: document.querySelectorAll("[data-view-panel]"),
@@ -136,7 +133,8 @@ const refs = {
   confirmationToast: document.getElementById("confirmationToast"),
   exitModal: document.getElementById("exitModal"),
   cancelExit: document.getElementById("cancelExit"),
-  deleteModal: document.getElementById("deleteModal")
+  confirmExit: document.getElementById("confirmExit")
+  ,deleteModal: document.getElementById("deleteModal")
   ,deleteModalTitle: document.getElementById("deleteModalTitle")
   ,deleteModalDescription: document.getElementById("deleteModalDescription")
   ,cancelDelete: document.getElementById("cancelDelete")
@@ -154,7 +152,7 @@ let pendingDeleteType = null;
 let editingGoalId = null;
 let editingEventId = null;
 let historyReady = false;
-const assistantHistory = [];
+let exitRequested = false;
 
 refs.spendingDate.value = todayValue();
 refs.incomeDate.value = todayValue();
@@ -179,10 +177,6 @@ refs.entryTypeButton.addEventListener("click", () => {
   setEntryType(refs.entryTypeLabel.textContent === "Expense" ? "income" : "expense");
 });
 
-if (refs.assistantForm) {
-  refs.assistantForm.addEventListener("submit", handleAssistantSubmit);
-}
-
 initializeViewHistory();
 showView(activeView);
 
@@ -199,12 +193,18 @@ window.addEventListener("storage", (event) => {
 });
 
 refs.cancelExit.addEventListener("click", closeExitModal);
+refs.confirmExit.addEventListener("click", () => {
+  exitRequested = true;
+  closeExitModal();
+  history.back();
+});
 refs.exitModal.addEventListener("click", (event) => {
   if (event.target === refs.exitModal) closeExitModal();
 });
 
 window.addEventListener("popstate", (event) => {
   if (event.state?.exitBoundary) {
+    if (exitRequested) return;
     history.pushState({ view: "dashboard" }, "", window.location.href);
     refs.exitModal.hidden = false;
     return;
@@ -615,8 +615,7 @@ function showView(viewName) {
     budget: "Set Budget",
     history: "History",
     events: "Events",
-    goals: "Goals",
-    assistant: "AI Assistant"
+    goals: "Goals"
   };
   activeView = titles[viewName] ? viewName : "dashboard";
   refs.pageTitle.textContent = titles[activeView];
@@ -628,90 +627,7 @@ function showView(viewName) {
   });
   const isDashboard = activeView === "dashboard";
   refs.currencyControl.hidden = !isDashboard;
-  const assistantButton = document.getElementById("assistantButton");
-  if (assistantButton) assistantButton.hidden = !isDashboard;
   window.scrollTo({ top: 0, behavior: "smooth" });
-}
-
-async function handleAssistantSubmit(event) {
-  event.preventDefault();
-  const message = refs.assistantInput.value.trim();
-  if (!message) return;
-
-  refs.assistantInput.value = "";
-  addAssistantMessage(message, "user");
-  assistantHistory.push({ role: "user", content: message });
-  const loadingMessage = addAssistantMessage("Thinking...", "ai", true);
-
-  try {
-    const assistantEndpoint = new URL("api/assistant", document.baseURI).href;
-    const response = await fetch(assistantEndpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message,
-        history: assistantHistory.slice(0, -1).slice(-10),
-        financeData: getAssistantFinanceData()
-      })
-    });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(result.error || "The assistant is unavailable right now.");
-    loadingMessage.remove();
-    addAssistantMessage(result.reply || "I could not generate a response.", "ai");
-    assistantHistory.push({ role: "assistant", content: result.reply || "" });
-  } catch (error) {
-    loadingMessage.remove();
-    const message = window.location.protocol === "file:"
-      ? "The AI assistant needs the app to run from a web server. Start the local server with `node server.js`, or open the deployed HTTPS URL."
-      : (error.message || "I could not connect to the assistant. Please try again.");
-    addAssistantMessage(message, "ai", false, true);
-  }
-}
-
-function addAssistantMessage(message, role, isLoading = false, isError = false) {
-  const wrapper = document.createElement("div");
-  wrapper.className = `assistant-message assistant-message-${role}${isError ? " assistant-message-error" : ""}`;
-  if (role === "ai") {
-    const avatar = document.createElement("div");
-    avatar.className = "message-avatar";
-    avatar.setAttribute("aria-hidden", "true");
-    avatar.textContent = "✦";
-    wrapper.appendChild(avatar);
-  }
-  const bubble = document.createElement("div");
-  bubble.className = `message-bubble${isLoading ? " message-loading" : ""}`;
-  bubble.textContent = message;
-  wrapper.appendChild(bubble);
-  refs.assistantMessages.appendChild(wrapper);
-  refs.assistantMessages.scrollTop = refs.assistantMessages.scrollHeight;
-  return wrapper;
-}
-
-function getAssistantFinanceData() {
-  return {
-    currency: state.currency || DEFAULT_CURRENCY,
-    budgets: getBudgetsForMonth(todayValue().slice(0, 7)),
-    monthlyTotal: getBudgetTotalForMonth(todayValue().slice(0, 7)),
-    spendings: state.spendings.slice(0, 60).map(({ date, category, amount, note }) => ({
-      date,
-      category,
-      amount: formatMoney(amount),
-      note
-    })),
-    incomes: state.incomes.slice(0, 30).map(({ date, source, amount, note }) => ({
-      date,
-      source,
-      amount: formatMoney(amount),
-      note
-    })),
-    goals: state.goals.map(({ name, target, saved, deadline }) => ({
-      name,
-      target: formatMoney(target),
-      saved: formatMoney(saved),
-      deadline
-    })),
-    events: state.events.map(({ name, budget, month }) => ({ name, budget: formatMoney(budget), month }))
-  };
 }
 
 function initializeViewHistory() {
