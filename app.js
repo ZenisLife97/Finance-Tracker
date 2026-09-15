@@ -179,7 +179,9 @@ refs.entryTypeButton.addEventListener("click", () => {
   setEntryType(refs.entryTypeLabel.textContent === "Expense" ? "income" : "expense");
 });
 
-refs.assistantForm.addEventListener("submit", handleAssistantSubmit);
+if (refs.assistantForm) {
+  refs.assistantForm.addEventListener("submit", handleAssistantSubmit);
+}
 
 initializeViewHistory();
 showView(activeView);
@@ -626,7 +628,8 @@ function showView(viewName) {
   });
   const isDashboard = activeView === "dashboard";
   refs.currencyControl.hidden = !isDashboard;
-  document.getElementById("assistantButton").hidden = !isDashboard;
+  const assistantButton = document.getElementById("assistantButton");
+  if (assistantButton) assistantButton.hidden = !isDashboard;
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -641,7 +644,8 @@ async function handleAssistantSubmit(event) {
   const loadingMessage = addAssistantMessage("Thinking...", "ai", true);
 
   try {
-    const response = await fetch("/api/assistant", {
+    const assistantEndpoint = new URL("api/assistant", document.baseURI).href;
+    const response = await fetch(assistantEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
