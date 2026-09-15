@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Finance Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="confirmationToast" class="confirmation-toast" role="status" aria-live="polite" aria-atomic="true" hidden></div>
+    <div id="deleteModal" class="modal-backdrop" role="presentation" hidden>
+      <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+        <h2 id="deleteModalTitle">Delete expense?</h2>
+        <p id="deleteModalDescription"><span id="deleteNoteDetail" class="delete-note-detail"></span> will be permanently removed from your history.</p>
+        <div class="modal-actions">
+          <button id="cancelDelete" class="ghost modal-cancel" type="button">Cancel</button>
+          <button id="confirmDelete" class="danger-button icon-button delete-icon" type="button" aria-label="Confirm delete" title="Confirm delete">&#128465;</button>
+        </div>
+      </section>
+    </div>
+    <main class="app-shell">
+      <header class="app-header">
+        <div>
+          <p class="eyebrow">Finance Tracker</p>
+          <h1 id="pageTitle">Overview</h1>
+          <p class="status-line"><span aria-hidden="true"></span> Local data <strong>•</strong> Sync ready</p>
+        </div>
+        <button id="homeButton" class="home-button" type="button" data-view="dashboard" aria-label="Go to overview" hidden>⌂</button>
+        <div id="currencyControl" class="currency-control">
+          <span class="sr-only">Display currency</span>
+          <button id="currencyButton" class="currency-button" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <img id="currencyFlag" src="https://flagcdn.com/w40/my.png" alt="" />
+            <span id="currencyLabel">MYR</span>
+            <span class="currency-chevron" aria-hidden="true">▾</span>
+          </button>
+          <div id="currencyMenu" class="currency-menu" role="listbox" hidden></div>
+        </div>
+      </header>
+
+      <section class="view active" data-view-panel="dashboard">
+        <div class="dashboard-heading">
+          <div>
+            <p id="dashboardMonth" class="eyebrow">Current month</p>
+            <h2>Monthly snapshot</h2>
+          </div>
+          <span class="month-badge">Current month</span>
+        </div>
+        <div class="dashboard-stats">
+          <article class="stat-card budget-card-button" data-view="budget" role="button" tabindex="0" aria-label="Open budget settings">
+            <span>Budget for the month</span>
+            <strong id="budgetTotal">0</strong>
+          </article>
+          <article class="stat-card accent-card">
+            <span>Amount spent</span>
+            <strong id="spentTotal">0</strong>
+          </article>
+        </div>
+        <article class="panel dashboard-chart">
+          <div class="panel-header">
+            <h2>Spending by category</h2>
+            <p>This month</p>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="spendingChart" width="360" height="360" aria-label="Monthly spending pie chart"></canvas>
+            <div id="chartLegend" class="legend"></div>
+          </div>
+        </article>
+        <nav class="quick-actions" aria-label="Finance actions">
+          <button class="action-button" type="button" data-view="expense"><span class="action-icon">＋</span><span>Add</span></button>
+          <button class="action-button" type="button" data-view="history"><span class="action-icon">↺</span><span>History</span></button>
+          <button class="action-button" type="button" data-view="events"><span class="action-icon">◇</span><span>Events</span></button>
+          <button class="action-button" type="button" data-view="goals"><span class="action-icon">◎</span><span>Goals</span></button>
+        </nav>
+      </section>
+
+      <section class="view" data-view-panel="budget">
+        <article class="panel">
+          <div class="panel-header">
+            <h2>Set budget</h2>
+            <p>Create or update budgets by category.</p>
+          </div>
+          <form id="monthlyBudgetForm" class="stack monthly-budget-form">
+            <label>
+              Monthly total budget
+              <input id="monthlyBudgetMonth" name="month" type="month" required />
+            </label>
+            <label>
+              Total amount
+              <input id="monthlyBudgetAmount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" required />
+            </label>
+            <button type="submit">Save monthly total</button>
+          </form>
+          <p id="monthlyBudgetStatus" class="budget-meta"></p>
+          <form id="budgetForm" class="stack">
+            <label>
+              Month
+              <input id="budgetMonth" name="month" type="month" required />
+            </label>
+            <label>
+              Category
+              <input id="budgetCategory" name="category" type="text" placeholder="Food" required />
+            </label>
+            <label>
+              Amount
+              <input id="budgetAmount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" required />
+            </label>
+            <button type="submit">Save budget</button>
+          </form>
+          <div id="budgetList" class="card-list"></div>
+        </article>
+      </section>
+
+      <section class="view" data-view-panel="expense">
+        <article class="panel">
+          <div class="panel-header">
+            <h2>Add <button id="entryTypeButton" class="entry-type-button expense" type="button" aria-label="Switch to income"><span class="entry-type-icon" aria-hidden="true">⇄</span><span id="entryTypeLabel">Expense</span></button></h2>
+            <p id="entryTypeDescription">Record daily expenses with a date and category.</p>
+          </div>
+          <form id="spendingForm" class="stack">
+            <label>
+              Date
+              <input id="spendingDate" name="date" type="date" required />
+            </label>
+            <label>
+              Category
+              <input id="spendingCategory" name="category" type="text" placeholder="Food" list="categoryOptions" required />
+              <datalist id="categoryOptions"></datalist>
+            </label>
+            <label>
+              Amount
+              <input id="spendingAmount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" required />
+            </label>
+            <label>
+              Note
+              <input id="spendingNote" name="note" type="text" placeholder="Lunch at cafe" />
+            </label>
+            <button type="submit">Add spending</button>
+          </form>
+          <form id="incomeForm" class="stack">
+            <label>Date<input id="incomeDate" name="date" type="date" required /></label>
+            <label>Source<input id="incomeSource" name="source" type="text" placeholder="Salary or freelance work" required /></label>
+            <label>Amount<input id="incomeAmount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" required /></label>
+            <label>Note<input id="incomeNote" name="note" type="text" placeholder="Optional note" /></label>
+            <button type="submit">Add income</button>
+          </form>
+        </article>
+      </section>
+
+      <section class="view" data-view-panel="history">
+        <article class="panel">
+          <div class="panel-header">
+            <h2>History</h2>
+            <p>Your newest expenses and income appear first.</p>
+          </div>
+          <div class="history-filters">
+             <label>
+               Month
+               <select id="historyMonthFilter">
+                 <option value="all">All months</option>
+               </select>
+             </label>
+             <label>
+               Year
+               <select id="historyYearFilter"></select>
+             </label>
+          </div>
+          <div id="spendingList" class="transaction-list"></div>
+        </article>
+      </section>
+
+      <section class="view" data-view-panel="goals">
+        <article class="panel">
+          <div class="panel-header">
+            <h2>Goals</h2>
+            <p>Set savings targets and track progress toward them.</p>
+          </div>
+          <div id="goalList" class="goal-list"></div>
+          <button id="createGoalButton" class="goal-create-button icon-button create-icon" type="button" aria-label="Create goal" title="Create goal">+</button>
+          <form id="goalForm" class="stack" hidden>
+            <label>Goal name<input id="goalName" name="name" type="text" placeholder="Emergency fund" required /></label>
+            <label>Target amount<input id="goalTarget" name="target" type="number" min="0.01" step="0.01" placeholder="0.00" required /></label>
+            <label>Amount saved<input id="goalSaved" name="saved" type="number" min="0" step="0.01" placeholder="0.00" required /></label>
+            <label>Target date<input id="goalDeadline" name="deadline" type="date" /></label>
+            <button id="goalSubmitButton" type="submit">Create goal</button>
+            <button id="cancelGoalButton" class="ghost" type="button">Cancel</button>
+          </form>
+        </article>
+      </section>
+
+      <section class="view events-view" data-view-panel="events">
+        <div class="events-section">
+        <article class="panel">
+          <div class="panel-header">
+            <h2>Events</h2>
+            <p>Select specific days to create a focused spending segment.</p>
+          </div>
+          <div id="eventList" class="event-list"></div>
+          <button id="createEventButton" class="event-create-button icon-button create-icon" type="button" aria-label="Create event" title="Create event">+</button>
+        </article>
+
+        <article class="panel event-summary-panel">
+          <div id="eventSummaryContent">
+            <div class="panel-header">
+              <h2 id="eventSummaryTitle">Event summary</h2>
+              <p id="eventSummarySubtitle">Create an event to analyze selected days.</p>
+            </div>
+            <div id="eventStats" class="event-stats"></div>
+            <div class="chart-wrap event-chart-wrap">
+              <canvas id="eventChart" width="360" height="360" aria-label="Selected event spending pie chart"></canvas>
+              <div id="eventChartLegend" class="legend"></div>
+            </div>
+            <div id="eventTransactions" class="transaction-list"></div>
+          </div>
+          <form id="eventForm" class="stack" hidden>
+            <label>
+              Event name
+              <input id="eventName" name="name" type="text" placeholder="Holiday week" required />
+            </label>
+            <label>
+              Budget
+              <input id="eventBudget" name="budget" type="number" min="0" step="0.01" placeholder="0.00" required />
+            </label>
+            <div class="calendar-editor">
+              <div class="calendar-toolbar">
+                <button id="previousEventMonth" class="calendar-nav" type="button" aria-label="Previous month">&#x2039;</button>
+                <div class="calendar-period">
+                  <button id="eventMonthLabel" class="period-label" type="button" aria-expanded="false"></button>
+                  <button id="eventYearLabel" class="period-label year-label" type="button" aria-expanded="false"></button>
+                </div>
+                <button id="nextEventMonth" class="calendar-nav" type="button" aria-label="Next month">&#x203A;</button>
+              </div>
+              <div id="eventDatePicker" class="date-picker" hidden>
+                <div class="picker-column" data-picker-column="month">
+                  <span class="picker-title">Month</span>
+                  <div id="eventMonthPicker" class="picker-wheel" role="listbox" aria-label="Select month"></div>
+                </div>
+                <div class="picker-column" data-picker-column="year" hidden>
+                  <span class="picker-title">Year</span>
+                  <div id="eventYearPicker" class="picker-wheel" role="listbox" aria-label="Select year"></div>
+                </div>
+              </div>
+              <div class="calendar-heading">
+                <strong>Select days</strong>
+                <span id="selectedDayCount" class="budget-meta">0 selected</span>
+              </div>
+              <div class="weekday-row" aria-hidden="true">
+                <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+              </div>
+              <div id="eventCalendar" class="calendar-grid"></div>
+            </div>
+            <div class="event-form-actions">
+              <button id="cancelEventButton" class="ghost" type="button">Cancel</button>
+              <button id="eventSubmitButton" type="submit">Add Event</button>
+            </div>
+          </form>
+        </article>
+        </div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

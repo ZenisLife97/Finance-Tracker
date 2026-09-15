@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="Finance Tracker">
+  <rect width="192" height="192" rx="40" fill="#0f172a"/>
+  <circle cx="96" cy="96" r="58" fill="#1e293b"/>
+  <path d="M96 40a56 56 0 1 1-39.6 16.4" fill="none" stroke="#5eead4" stroke-width="16" stroke-linecap="round"/>
+  <path d="M96 96V58" stroke="#60a5fa" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="96" cy="96" r="10" fill="#e5eefc"/>
+</svg>
