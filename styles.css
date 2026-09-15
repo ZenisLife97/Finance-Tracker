@@ -368,6 +368,9 @@ h1 {
   min-width: 2.4rem;
   font-size: 1.7rem;
   line-height: 1;
+  border-color: rgba(94, 234, 212, 0.5);
+  color: var(--accent);
+  text-shadow: 0 0 8px rgba(94, 234, 212, 0.55);
 }
 
 .period-label {
@@ -498,21 +501,25 @@ h1 {
   width: 2.35rem;
   height: 2.35rem;
   padding: 0;
-  border: 2px solid var(--border);
+  border: 1px solid rgba(94, 234, 212, 0.5);
   border-radius: 10px;
-  background: transparent;
+  background: rgba(94, 234, 212, 0.08);
   color: var(--accent);
   font-size: 1.15rem;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.08), 0 0 12px rgba(94, 234, 212, 0.12);
 }
 
 .icon-button:hover,
 .icon-button:focus-visible {
   border-color: var(--accent);
   background: rgba(94, 234, 212, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(94, 234, 212, 0.18), 0 0 16px rgba(94, 234, 212, 0.28);
+  outline: none;
 }
 
 .delete-icon {
-  border-color: rgba(251, 113, 133, 0.45);
+  border-color: rgba(251, 113, 133, 0.55);
   color: var(--danger);
 }
 
@@ -520,12 +527,21 @@ h1 {
 .delete-icon:focus-visible {
   border-color: var(--danger);
   background: rgba(251, 113, 133, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.18), 0 0 16px rgba(251, 113, 133, 0.24);
 }
 
 .create-icon {
   color: var(--accent);
   font-size: 2rem;
   line-height: 1;
+}
+
+.calendar-nav,
+.action-icon,
+.entry-type-icon,
+.currency-chevron {
+  color: var(--accent);
+  text-shadow: 0 0 8px rgba(94, 234, 212, 0.55);
 }
 
 .event-select {
@@ -757,6 +773,75 @@ canvas {
   animation: dropdown-in 0.8s ease-out;
 }
 
+.category-picker {
+  position: relative;
+  margin-top: 0.35rem;
+}
+
+.category-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.7);
+  color: var(--text);
+  font-weight: 400;
+  text-align: left;
+}
+
+.category-button:hover,
+.category-button:focus-visible,
+.category-button[aria-expanded="true"] {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.category-menu {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  display: grid;
+  width: 100%;
+  max-height: 14rem;
+  overflow-y: auto;
+  padding: 0.35rem;
+  border: 1px solid var(--glass-edge);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(176, 218, 255, 0.14), transparent 34%),
+    var(--glass);
+  backdrop-filter: blur(22px) saturate(135%);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38);
+  transform-origin: top center;
+  animation: dropdown-in 0.25s ease-out;
+}
+
+.category-menu[hidden] {
+  display: none;
+}
+
+.category-option {
+  width: 100%;
+  padding: 0.7rem 0.75rem;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 500;
+  text-align: left;
+}
+
+.category-option:hover,
+.category-option:focus-visible {
+  background: rgba(94, 234, 212, 0.14);
+  outline: none;
+}
+
 .currency-menu[hidden] {
   display: none;
 }
@@ -899,6 +984,24 @@ canvas {
 .danger-button {
   background: var(--danger);
   color: #210810;
+}
+
+.danger-button.icon-button.delete-icon {
+  border-color: rgba(251, 113, 133, 0.55);
+  background: rgba(251, 113, 133, 0.08);
+  color: var(--danger);
+}
+
+.budget-panels {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 700px) {
+  .budget-panels {
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    align-items: start;
+  }
 }
 
 .history-month {

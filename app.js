@@ -71,6 +71,8 @@ const refs = {
   spendingForm: document.getElementById("spendingForm"),
   spendingDate: document.getElementById("spendingDate"),
   spendingCategory: document.getElementById("spendingCategory"),
+  spendingCategoryButton: document.getElementById("spendingCategoryButton"),
+  spendingCategoryLabel: document.getElementById("spendingCategoryLabel"),
   spendingAmount: document.getElementById("spendingAmount"),
   spendingNote: document.getElementById("spendingNote"),
   spendingList: document.getElementById("spendingList"),
@@ -96,7 +98,7 @@ const refs = {
   categoryOptions: document.getElementById("categoryOptions"),
   spendingChart: document.getElementById("spendingChart"),
   chartLegend: document.getElementById("chartLegend"),
-  spentTotal: document.getElementById("spentTotal"),
+  budgetAvailable: document.getElementById("budgetAvailable"),
   budgetTotal: document.getElementById("budgetTotal"),
   dashboardMonth: document.getElementById("dashboardMonth"),
   pageTitle: document.getElementById("pageTitle"),
@@ -177,6 +179,27 @@ refs.viewButtons.forEach((button) => {
 
 refs.entryTypeButton.addEventListener("click", () => {
   setEntryType(refs.entryTypeLabel.textContent === "Expense" ? "income" : "expense");
+});
+
+refs.spendingCategoryButton.addEventListener("click", () => {
+  const isOpen = !refs.categoryOptions.hidden;
+  refs.categoryOptions.hidden = isOpen;
+  refs.spendingCategoryButton.setAttribute("aria-expanded", String(!isOpen));
+});
+
+refs.categoryOptions.addEventListener("click", (event) => {
+  const option = event.target.closest("[data-category]");
+  if (!option) return;
+  refs.spendingCategory.value = option.dataset.category;
+  refs.spendingCategoryLabel.textContent = option.dataset.category;
+  refs.categoryOptions.hidden = true;
+  refs.spendingCategoryButton.setAttribute("aria-expanded", "false");
+});
+
+document.addEventListener("click", (event) => {
+  if (event.target.closest(".category-picker")) return;
+  refs.categoryOptions.hidden = true;
+  refs.spendingCategoryButton.setAttribute("aria-expanded", "false");
 });
 
 if (refs.assistantForm) {
@@ -303,10 +326,13 @@ refs.spendingForm.addEventListener("submit", (event) => {
   });
 
   refs.spendingForm.reset();
+  refs.spendingCategoryLabel.textContent = "Choose a category";
+  refs.spendingCategory.value = "";
   refs.spendingDate.value = todayValue();
   saveState();
   render();
   showConfirmation("Expense added successfully");
+  navigateToView("dashboard");
 });
 
 refs.spendingList.addEventListener("click", (event) => {
@@ -348,6 +374,7 @@ refs.incomeForm.addEventListener("submit", (event) => {
   saveState();
   render();
   showConfirmation("Income added successfully");
+  navigateToView("dashboard");
 });
 
 refs.goalForm.addEventListener("submit", (event) => {
@@ -587,8 +614,8 @@ function render() {
   const budgetTotal = getBudgetTotalForMonth(currentMonth);
   const spentTotal = sum(monthSpendings.map((spending) => spending.amount));
 
-  refs.spentTotal.textContent = formatMoney(spentTotal);
-  refs.spentTotal.className = getBudgetStatusClass(spentTotal, budgetTotal);
+  refs.budgetAvailable.textContent = formatMoney(budgetTotal - spentTotal);
+  refs.budgetAvailable.className = getBudgetStatusClass(spentTotal, budgetTotal);
   refs.budgetTotal.textContent = formatMoney(budgetTotal);
   refs.dashboardMonth.textContent = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(new Date());
 
@@ -603,7 +630,7 @@ function render() {
   renderHistoryFilters();
   renderSpendings();
   renderGoals();
-  renderChart(totalsByCategory);
+  renderChart(totalsByCategory, spentTotal);
   renderCategories();
   renderEvents();
 }
@@ -955,8 +982,8 @@ function renderSpendings() {
             <article class="transaction-item history-transaction ${entry.type === "income" ? "history-income" : "history-expense"}">
               <div class="transaction-top">
                 <div class="history-transaction-details">
-                  <div class="transaction-title">${escapeHtml(entry.title)}</div>
-                  <div class="transaction-meta">${entry.type === "income" ? "Income" : "Expense"} • ${formatDate(entry.date)}${entry.note ? ` • ${escapeHtml(entry.note)}` : ""}</div>
+                  <div class="transaction-title">${escapeHtml(entry.note?.trim() || entry.title)}</div>
+                    <div class="transaction-meta">${escapeHtml(entry.title)} • ${formatDate(entry.date)}</div>
                 </div>
                 <div class="history-transaction-end">
                   <div class="transaction-amount ${entry.type === "income" ? "income-amount" : `expense-amount ${getBudgetStatusClass(totalsByCategory[entry.category] || 0, currentBudgets[entry.category])}`}\">${entry.type === "income" ? "+" : "-"}${formatMoney(entry.amount)}</div>
@@ -1015,7 +1042,7 @@ function closeDeleteModal() {
   refs.deleteModal.hidden = true;
 }
 
-function renderChart(totalsByCategory) {
+function renderChart(totalsByCategory, spentTotal) {
   const entries = Object.entries(totalsByCategory).filter(([, value]) => value > 0);
   const canvas = refs.spendingChart;
   const ctx = canvas.getContext("2d");
@@ -1033,7 +1060,10 @@ function renderChart(totalsByCategory) {
     ctx.fillStyle = "#95a3bf";
     ctx.font = "600 18px system-ui";
     ctx.textAlign = "center";
-    ctx.fillText("No spending yet", center, center);
+    ctx.fillText("Amount spent", center, center - 10);
+    ctx.fillStyle = "#e5eefc";
+    ctx.font = "700 18px system-ui";
+    ctx.fillText(formatMoney(spentTotal), center, center + 18);
     refs.chartLegend.innerHTML = `<p class="budget-meta">Add spending to see the chart.</p>`;
     return;
   }
@@ -1059,6 +1089,14 @@ function renderChart(totalsByCategory) {
   ctx.beginPath();
   ctx.arc(center, center, radius * 0.56, 0, Math.PI * 2);
   ctx.fill();
+
+  ctx.fillStyle = "#95a3bf";
+  ctx.font = "600 13px system-ui";
+  ctx.textAlign = "center";
+  ctx.fillText("Amount spent", center, center - 10);
+  ctx.fillStyle = "#e5eefc";
+  ctx.font = "700 18px system-ui";
+  ctx.fillText(formatMoney(spentTotal), center, center + 16);
 
   refs.chartLegend.innerHTML = entries
     .map((entry, index) => {
@@ -1278,12 +1316,11 @@ function renderCategories() {
   const categories = [...new Set([
     ...EXPENSE_CATEGORIES,
     ...Object.keys(getBudgetsForMonth(todayValue().slice(0, 7)))
-  ])].filter((category) => category !== "Transport")
-    .sort((a, b) => a.localeCompare(b))
-    .map((category) => `<option value="${escapeHtml(category)}"></option>`)
-    .join("");
+  ])].filter((category) => category !== "Transport").sort((a, b) => a.localeCompare(b));
 
-  refs.categoryOptions.innerHTML = categories;
+  refs.categoryOptions.innerHTML = categories
+    .map((category) => `<button class="category-option" type="button" role="option" data-category="${escapeHtml(category)}">${escapeHtml(category)}</button>`)
+    .join("");
 }
 
 function groupTotals(spendings) {

@@ -65,12 +65,12 @@
         </div>
         <div class="dashboard-stats">
           <article class="stat-card budget-card-button" data-view="budget" role="button" tabindex="0" aria-label="Open budget settings">
-            <span>Budget for the month</span>
+            <span>Budget of the month</span>
             <strong id="budgetTotal">0</strong>
           </article>
           <article class="stat-card accent-card">
-            <span>Amount spent</span>
-            <strong id="spentTotal">0</strong>
+            <span>Budget available</span>
+            <strong id="budgetAvailable">0</strong>
           </article>
         </div>
         <article class="panel dashboard-chart">
@@ -92,40 +92,48 @@
       </section>
 
       <section class="view" data-view-panel="budget">
-        <article class="panel">
-          <div class="panel-header">
-            <h2>Set budget</h2>
-            <p>Create or update budgets by category.</p>
-          </div>
-          <form id="monthlyBudgetForm" class="stack monthly-budget-form">
-            <label>
-              Monthly total budget
-              <input id="monthlyBudgetMonth" name="month" type="month" required />
-            </label>
-            <label>
-              Total amount
-              <input id="monthlyBudgetAmount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" required />
-            </label>
-            <button type="submit">Save monthly total</button>
-          </form>
-          <p id="monthlyBudgetStatus" class="budget-meta"></p>
-          <form id="budgetForm" class="stack">
-            <label>
-              Month
-              <input id="budgetMonth" name="month" type="month" required />
-            </label>
-            <label>
-              Category
-              <input id="budgetCategory" name="category" type="text" placeholder="Food" required />
-            </label>
-            <label>
-              Amount
-              <input id="budgetAmount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" required />
-            </label>
-            <button type="submit">Save budget</button>
-          </form>
-          <div id="budgetList" class="card-list"></div>
-        </article>
+        <div class="budget-panels">
+          <article class="panel">
+            <div class="panel-header">
+              <h2>Set monthly budget</h2>
+              <p>Set the total amount available for a month.</p>
+            </div>
+            <form id="monthlyBudgetForm" class="stack monthly-budget-form">
+              <label>
+                Month
+                <input id="monthlyBudgetMonth" name="month" type="month" required />
+              </label>
+              <label>
+                Total amount
+                <input id="monthlyBudgetAmount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" required />
+              </label>
+              <button type="submit">Save monthly total</button>
+            </form>
+            <p id="monthlyBudgetStatus" class="budget-meta"></p>
+          </article>
+          <article class="panel">
+            <div class="panel-header">
+              <h2>Set category budget</h2>
+              <p>Create or update a budget for a spending category.</p>
+            </div>
+            <form id="budgetForm" class="stack">
+              <label>
+                Month
+                <input id="budgetMonth" name="month" type="month" required />
+              </label>
+              <label>
+                Category
+                <input id="budgetCategory" name="category" type="text" placeholder="Food" required />
+              </label>
+              <label>
+                Amount
+                <input id="budgetAmount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" required />
+              </label>
+              <button type="submit">Save budget</button>
+            </form>
+            <div id="budgetList" class="card-list"></div>
+          </article>
+        </div>
       </section>
 
       <section class="view" data-view-panel="expense">
@@ -141,8 +149,14 @@
             </label>
             <label>
               Category
-              <input id="spendingCategory" name="category" type="text" placeholder="Food" list="categoryOptions" required />
-              <datalist id="categoryOptions"></datalist>
+              <div class="category-picker">
+                <button id="spendingCategoryButton" class="category-button" type="button" aria-haspopup="listbox" aria-expanded="false">
+                  <span id="spendingCategoryLabel">Choose a category</span>
+                  <span class="currency-chevron" aria-hidden="true">▾</span>
+                </button>
+                <input id="spendingCategory" name="category" type="hidden" />
+                <div id="categoryOptions" class="category-menu" role="listbox" hidden></div>
+              </div>
             </label>
             <label>
               Amount
