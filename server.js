@@ -4,7 +4,7 @@ const path = require("node:path");
 
 const root = __dirname;
 const port = Number(process.env.PORT) || 3000;
-const model = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+const model = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",

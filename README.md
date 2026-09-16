@@ -10,7 +10,7 @@ For a Vercel deployment:
 2. Add an environment variable named `GEMINI_API_KEY` in the Vercel project settings. Create the key in Google AI Studio.
 3. Redeploy the project.
 
-The optional `GEMINI_MODEL` variable defaults to `gemini-2.5-flash-lite`, a lightweight model suitable for the free tier.
+The optional `GEMINI_MODEL` variable defaults to `gemini-3.5-flash-lite`, a lightweight model suitable for the free tier.
 
 For local testing, set `GEMINI_API_KEY` in your terminal and run `node server.js`, then open `http://localhost:3000`.
 
