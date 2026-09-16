@@ -139,7 +139,7 @@
       <section class="view" data-view-panel="expense">
         <article class="panel">
           <div class="panel-header">
-            <h2>Add <button id="entryTypeButton" class="entry-type-button expense" type="button" aria-label="Switch to income"><span class="entry-type-icon" aria-hidden="true">⇄</span><span id="entryTypeLabel">Expense</span></button></h2>
+            <h2><button id="entryTypeButton" class="entry-type-button expense" type="button" aria-label="Switch to income"><span class="entry-type-icon" aria-hidden="true">⇄</span><span id="entryTypeLabel">Expense</span></button></h2>
             <p id="entryTypeDescription">Record daily expenses with a date and category.</p>
           </div>
           <form id="spendingForm" class="stack">
@@ -181,19 +181,32 @@
       <section class="view" data-view-panel="history">
         <article class="panel">
           <div class="panel-header">
-            <h2>History</h2>
             <p>Your newest expenses and income appear first.</p>
           </div>
           <div class="history-filters">
              <label>
                Month
-               <select id="historyMonthFilter">
-                 <option value="all">All months</option>
-               </select>
+               <div class="category-picker history-filter-picker">
+                 <button id="historyMonthButton" class="category-button" type="button" aria-haspopup="listbox" aria-expanded="false">
+                   <span id="historyMonthLabel">All months</span>
+                   <span class="currency-chevron" aria-hidden="true">▾</span>
+                 </button>
+                 <select id="historyMonthFilter" hidden>
+                   <option value="all">All months</option>
+                 </select>
+                 <div id="historyMonthOptions" class="category-menu" role="listbox" hidden></div>
+               </div>
              </label>
              <label>
                Year
-               <select id="historyYearFilter"></select>
+               <div class="category-picker history-filter-picker">
+                 <button id="historyYearButton" class="category-button" type="button" aria-haspopup="listbox" aria-expanded="false">
+                   <span id="historyYearLabel">All years</span>
+                   <span class="currency-chevron" aria-hidden="true">▾</span>
+                 </button>
+                 <select id="historyYearFilter" hidden></select>
+                 <div id="historyYearOptions" class="category-menu" role="listbox" hidden></div>
+               </div>
              </label>
           </div>
           <div id="spendingList" class="transaction-list"></div>
@@ -203,7 +216,6 @@
       <section class="view" data-view-panel="goals">
         <article class="panel">
           <div class="panel-header">
-            <h2>Goals</h2>
             <p>Set savings targets and track progress toward them.</p>
           </div>
           <div id="goalList" class="goal-list"></div>
@@ -223,7 +235,6 @@
         <div class="events-section">
         <article class="panel">
           <div class="panel-header">
-            <h2>Events</h2>
             <p>Select specific days to create a focused spending segment.</p>
           </div>
           <div id="eventList" class="event-list"></div>

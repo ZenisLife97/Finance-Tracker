@@ -95,6 +95,12 @@ const refs = {
   cancelGoalButton: document.getElementById("cancelGoalButton"),
   historyMonthFilter: document.getElementById("historyMonthFilter"),
   historyYearFilter: document.getElementById("historyYearFilter"),
+  historyMonthButton: document.getElementById("historyMonthButton"),
+  historyMonthLabel: document.getElementById("historyMonthLabel"),
+  historyMonthOptions: document.getElementById("historyMonthOptions"),
+  historyYearButton: document.getElementById("historyYearButton"),
+  historyYearLabel: document.getElementById("historyYearLabel"),
+  historyYearOptions: document.getElementById("historyYearOptions"),
   categoryOptions: document.getElementById("categoryOptions"),
   spendingChart: document.getElementById("spendingChart"),
   chartLegend: document.getElementById("chartLegend"),
@@ -155,6 +161,8 @@ let pendingDeleteId = null;
 let pendingDeleteType = null;
 let editingGoalId = null;
 let editingEventId = null;
+let editingSpendingId = null;
+let editingIncomeId = null;
 let historyReady = false;
 const assistantHistory = [];
 
@@ -200,7 +208,16 @@ document.addEventListener("click", (event) => {
   if (event.target.closest(".category-picker")) return;
   refs.categoryOptions.hidden = true;
   refs.spendingCategoryButton.setAttribute("aria-expanded", "false");
+  refs.historyMonthOptions.hidden = true;
+  refs.historyYearOptions.hidden = true;
+  refs.historyMonthButton.setAttribute("aria-expanded", "false");
+  refs.historyYearButton.setAttribute("aria-expanded", "false");
 });
+
+refs.historyMonthButton.addEventListener("click", () => toggleHistoryFilter("month"));
+refs.historyYearButton.addEventListener("click", () => toggleHistoryFilter("year"));
+refs.historyMonthOptions.addEventListener("click", (event) => selectHistoryFilter("month", event));
+refs.historyYearOptions.addEventListener("click", (event) => selectHistoryFilter("year", event));
 
 if (refs.assistantForm) {
   refs.assistantForm.addEventListener("submit", handleAssistantSubmit);
@@ -317,25 +334,53 @@ refs.spendingForm.addEventListener("submit", (event) => {
 
   if (!category || !date || !Number.isFinite(amount) || amount <= 0) return;
 
-  state.spendings.unshift({
-    id: createId(),
-    category,
-    amount: toBaseAmount(amount),
-    date,
-    note
-  });
+  const wasEditing = Boolean(editingSpendingId);
+  if (wasEditing) {
+    const spending = state.spendings.find((item) => item.id === editingSpendingId);
+    if (spending) Object.assign(spending, { category, amount: toBaseAmount(amount), date, note });
+  } else {
+    state.spendings.unshift({ id: createId(), category, amount: toBaseAmount(amount), date, note });
+  }
 
+  editingSpendingId = null;
   refs.spendingForm.reset();
   refs.spendingCategoryLabel.textContent = "Choose a category";
   refs.spendingCategory.value = "";
   refs.spendingDate.value = todayValue();
+  refs.spendingForm.querySelector("button[type=submit]").textContent = "Add spending";
   saveState();
   render();
-  showConfirmation("Expense added successfully");
+  showConfirmation(wasEditing ? "Expense updated successfully" : "Expense added successfully");
   navigateToView("dashboard");
 });
 
 refs.spendingList.addEventListener("click", (event) => {
+  const editButton = event.target.closest("[data-edit-entry]");
+  if (editButton) {
+    const isIncome = editButton.dataset.entryType === "income";
+    const entry = (isIncome ? state.incomes : state.spendings).find((item) => item.id === editButton.dataset.editEntry);
+    if (!entry) return;
+    editingSpendingId = isIncome ? null : entry.id;
+    editingIncomeId = isIncome ? entry.id : null;
+    if (isIncome) {
+      setEntryType("income");
+      refs.incomeDate.value = entry.date;
+      refs.incomeSource.value = entry.source;
+      refs.incomeAmount.value = fromBaseAmount(entry.amount);
+      refs.incomeNote.value = entry.note || "";
+      refs.incomeForm.querySelector("button[type=submit]").textContent = "Save income";
+    } else {
+      setEntryType("expense");
+      refs.spendingDate.value = entry.date;
+      refs.spendingCategory.value = entry.category;
+      refs.spendingCategoryLabel.textContent = entry.category;
+      refs.spendingAmount.value = fromBaseAmount(entry.amount);
+      refs.spendingNote.value = entry.note || "";
+      refs.spendingForm.querySelector("button[type=submit]").textContent = "Save spending";
+    }
+    navigateToView("expense");
+    return;
+  }
   const expenseButton = event.target.closest("[data-delete-id]");
   const incomeButton = event.target.closest("[data-delete-income]");
   const button = expenseButton || incomeButton;
@@ -362,18 +407,20 @@ refs.incomeForm.addEventListener("submit", (event) => {
   const amount = Number(refs.incomeAmount.value);
   if (!source || !refs.incomeDate.value || !Number.isFinite(amount) || amount <= 0) return;
 
-  state.incomes.unshift({
-    id: createId(),
-    source,
-    amount: toBaseAmount(amount),
-    date: refs.incomeDate.value,
-    note: refs.incomeNote.value.trim()
-  });
+  const wasEditing = Boolean(editingIncomeId);
+  if (wasEditing) {
+    const income = state.incomes.find((item) => item.id === editingIncomeId);
+    if (income) Object.assign(income, { source, amount: toBaseAmount(amount), date: refs.incomeDate.value, note: refs.incomeNote.value.trim() });
+  } else {
+    state.incomes.unshift({ id: createId(), source, amount: toBaseAmount(amount), date: refs.incomeDate.value, note: refs.incomeNote.value.trim() });
+  }
+  editingIncomeId = null;
   refs.incomeForm.reset();
   refs.incomeDate.value = todayValue();
+  refs.incomeForm.querySelector("button[type=submit]").textContent = "Add income";
   saveState();
   render();
-  showConfirmation("Income added successfully");
+  showConfirmation(wasEditing ? "Income updated successfully" : "Income added successfully");
   navigateToView("dashboard");
 });
 
@@ -987,6 +1034,7 @@ function renderSpendings() {
                 </div>
                 <div class="history-transaction-end">
                   <div class="transaction-amount ${entry.type === "income" ? "income-amount" : `expense-amount ${getBudgetStatusClass(totalsByCategory[entry.category] || 0, currentBudgets[entry.category])}`}\">${entry.type === "income" ? "+" : "-"}${formatMoney(entry.amount)}</div>
+                  <button class="icon-button" type="button" data-edit-entry="${entry.id}" data-entry-type="${entry.type}" aria-label="Edit ${entry.type}" title="Edit ${entry.type}">✎</button>
                   <button class="icon-button delete-icon" type="button" ${entry.type === "income" ? `data-delete-income="${entry.id}" aria-label="Delete income" title="Delete income"` : `data-delete-id="${entry.id}" aria-label="Delete expense" title="Delete expense"`}>&#128465;</button>
                 </div>
               </div>
@@ -1015,7 +1063,7 @@ function renderGoals() {
           <div class="progress-track"><span style="width: ${progress * 100}%"></span></div>
           <div class="goal-summary"><span>${formatMoney(goal.saved)} saved</span><span>${formatMoney(Math.max(goal.target - goal.saved, 0))} remaining</span></div>
           <div class="budget-actions">
-            <button class="ghost" type="button" data-edit-goal="${goal.id}">Edit</button>
+            <button class="icon-button" type="button" data-edit-goal="${goal.id}" aria-label="Edit ${escapeHtml(goal.name)}" title="Edit goal">✎</button>
             <button class="icon-button delete-icon" type="button" data-delete-goal="${goal.id}" aria-label="Delete goal" title="Delete goal">&#128465;</button>
           </div>
         </article>
@@ -1034,6 +1082,38 @@ function renderHistoryFilters() {
   refs.historyYearFilter.innerHTML = `<option value="all">All years</option>${years.map((year) => `<option value="${year}">${year}</option>`).join("")}`;
   refs.historyMonthFilter.value = months.includes(selectedMonth) ? selectedMonth : "all";
   refs.historyYearFilter.value = years.includes(selectedYear) ? selectedYear : "all";
+  const monthLabel = refs.historyMonthFilter.options[refs.historyMonthFilter.selectedIndex].textContent;
+  const yearLabel = refs.historyYearFilter.options[refs.historyYearFilter.selectedIndex].textContent;
+  refs.historyMonthLabel.textContent = monthLabel;
+  refs.historyYearLabel.textContent = yearLabel;
+  refs.historyMonthOptions.innerHTML = [...refs.historyMonthFilter.options].map((option) => `<button class="category-option" type="button" role="option" data-history-value="${option.value}" data-history-label="${escapeHtml(option.textContent)}">${escapeHtml(option.textContent)}</button>`).join("");
+  refs.historyYearOptions.innerHTML = [...refs.historyYearFilter.options].map((option) => `<button class="category-option" type="button" role="option" data-history-value="${option.value}" data-history-label="${escapeHtml(option.textContent)}">${escapeHtml(option.textContent)}</button>`).join("");
+}
+
+function toggleHistoryFilter(type) {
+  const options = type === "month" ? refs.historyMonthOptions : refs.historyYearOptions;
+  const button = type === "month" ? refs.historyMonthButton : refs.historyYearButton;
+  const isOpen = !options.hidden;
+  refs.historyMonthOptions.hidden = true;
+  refs.historyYearOptions.hidden = true;
+  refs.historyMonthButton.setAttribute("aria-expanded", "false");
+  refs.historyYearButton.setAttribute("aria-expanded", "false");
+  options.hidden = isOpen;
+  button.setAttribute("aria-expanded", String(!isOpen));
+}
+
+function selectHistoryFilter(type, event) {
+  const option = event.target.closest("[data-history-value]");
+  if (!option) return;
+  const select = type === "month" ? refs.historyMonthFilter : refs.historyYearFilter;
+  const label = type === "month" ? refs.historyMonthLabel : refs.historyYearLabel;
+  const options = type === "month" ? refs.historyMonthOptions : refs.historyYearOptions;
+  const button = type === "month" ? refs.historyMonthButton : refs.historyYearButton;
+  select.value = option.dataset.historyValue;
+  label.textContent = option.dataset.historyLabel;
+  options.hidden = true;
+  button.setAttribute("aria-expanded", "false");
+  select.dispatchEvent(new Event("change"));
 }
 
 function closeDeleteModal() {
