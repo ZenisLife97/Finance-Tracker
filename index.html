@@ -57,15 +57,17 @@
 
       <section class="view active" data-view-panel="dashboard">
         <div class="dashboard-heading">
-          <div>
-            <p id="dashboardMonth" class="eyebrow">Current month</p>
-            <h2>Monthly snapshot</h2>
+          <div id="snapshotPeriodControl" class="currency-control snapshot-period-control">
+            <button id="snapshotPeriodButton" class="currency-button" type="button" aria-label="Snapshot period" aria-haspopup="listbox" aria-expanded="false">
+              <span id="snapshotPeriodLabel">Monthly</span>
+              <span class="currency-chevron" aria-hidden="true">▾</span>
+            </button>
+            <div id="snapshotPeriodMenu" class="currency-menu" role="listbox" hidden></div>
           </div>
-          <span class="month-badge">Current month</span>
         </div>
         <div class="dashboard-stats">
           <article class="stat-card budget-card-button" data-view="budget" role="button" tabindex="0" aria-label="Open budget settings">
-            <span>Budget of the month</span>
+            <span>Monthly Budget</span>
             <strong id="budgetTotal">0</strong>
           </article>
           <article class="stat-card accent-card">
@@ -74,10 +76,6 @@
           </article>
         </div>
         <article class="panel dashboard-chart">
-          <div class="panel-header">
-            <h2>Spending by category</h2>
-            <p>This month</p>
-          </div>
           <div class="chart-wrap">
             <canvas id="spendingChart" width="360" height="360" aria-label="Monthly spending pie chart"></canvas>
             <div id="chartLegend" class="legend"></div>
@@ -183,6 +181,11 @@
           <div class="panel-header">
             <p>Your newest expenses and income appear first.</p>
           </div>
+          <div class="history-tabs" role="tablist" aria-label="History views">
+            <button id="historyEntriesTab" class="history-tab active" type="button" role="tab" aria-label="Transactions list" title="Transactions list" aria-selected="true" aria-controls="historyEntriesPanel"><span aria-hidden="true">☷</span></button>
+            <button id="historyMonthsTab" class="history-tab" type="button" role="tab" aria-label="Year overview grid" title="Year overview grid" aria-selected="false" aria-controls="historyMonthsPanel"><span aria-hidden="true">▦</span></button>
+          </div>
+          <div id="historyEntriesPanel" role="tabpanel" aria-labelledby="historyEntriesTab">
           <div class="history-filters">
              <label>
                Month
@@ -210,6 +213,20 @@
              </label>
           </div>
           <div id="spendingList" class="transaction-list"></div>
+          </div>
+          <div id="historyMonthsPanel" class="history-months-panel" role="tabpanel" aria-labelledby="historyMonthsTab" hidden>
+            <label>
+              Year
+              <div class="category-picker history-filter-picker">
+                <button id="historyOverviewYearButton" class="category-button" type="button" aria-haspopup="listbox" aria-expanded="false">
+                  <span id="historyOverviewYearLabel">All years</span>
+                  <span class="currency-chevron" aria-hidden="true">▾</span>
+                </button>
+                <div id="historyOverviewYearOptions" class="category-menu" role="listbox" hidden></div>
+              </div>
+            </label>
+            <div id="historyMonthGrid" class="history-month-grid"></div>
+          </div>
         </article>
       </section>
 

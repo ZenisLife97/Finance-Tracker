@@ -101,12 +101,22 @@ const refs = {
   historyYearButton: document.getElementById("historyYearButton"),
   historyYearLabel: document.getElementById("historyYearLabel"),
   historyYearOptions: document.getElementById("historyYearOptions"),
+  historyEntriesTab: document.getElementById("historyEntriesTab"),
+  historyMonthsTab: document.getElementById("historyMonthsTab"),
+  historyEntriesPanel: document.getElementById("historyEntriesPanel"),
+  historyMonthsPanel: document.getElementById("historyMonthsPanel"),
+  historyOverviewYearButton: document.getElementById("historyOverviewYearButton"),
+  historyOverviewYearLabel: document.getElementById("historyOverviewYearLabel"),
+  historyOverviewYearOptions: document.getElementById("historyOverviewYearOptions"),
+  historyMonthGrid: document.getElementById("historyMonthGrid"),
   categoryOptions: document.getElementById("categoryOptions"),
   spendingChart: document.getElementById("spendingChart"),
   chartLegend: document.getElementById("chartLegend"),
   budgetAvailable: document.getElementById("budgetAvailable"),
   budgetTotal: document.getElementById("budgetTotal"),
-  dashboardMonth: document.getElementById("dashboardMonth"),
+  snapshotPeriodButton: document.getElementById("snapshotPeriodButton"),
+  snapshotPeriodLabel: document.getElementById("snapshotPeriodLabel"),
+  snapshotPeriodMenu: document.getElementById("snapshotPeriodMenu"),
   pageTitle: document.getElementById("pageTitle"),
   assistantForm: document.getElementById("assistantForm"),
   assistantInput: document.getElementById("assistantInput"),
@@ -152,6 +162,12 @@ const refs = {
   deleteNoteDetail: document.getElementById("deleteNoteDetail")
 };
 
+document.querySelectorAll('input[type="number"][step="0.01"]').forEach((input) => {
+  input.addEventListener("blur", () => {
+    if (input.value !== "") input.value = Number(input.value).toFixed(2);
+  });
+});
+
 let selectedEventId = null;
 let selectedEventDays = new Set();
 let eventRangeStart = null;
@@ -163,6 +179,8 @@ let editingGoalId = null;
 let editingEventId = null;
 let editingSpendingId = null;
 let editingIncomeId = null;
+let historyOverviewYear = todayValue().slice(0, 4);
+let snapshotPeriod = "monthly";
 let historyReady = false;
 const assistantHistory = [];
 
@@ -173,6 +191,8 @@ refs.budgetMonth.value = todayValue().slice(0, 7);
 refs.monthlyBudgetMonth.value = todayValue().slice(0, 7);
 populateCurrencyOptions();
 updateCurrencyButton();
+populateSnapshotPeriodOptions();
+updateSnapshotPeriodButton();
 closeEventDatePicker();
 renderEventCalendar();
 
@@ -210,14 +230,41 @@ document.addEventListener("click", (event) => {
   refs.spendingCategoryButton.setAttribute("aria-expanded", "false");
   refs.historyMonthOptions.hidden = true;
   refs.historyYearOptions.hidden = true;
+  refs.historyOverviewYearOptions.hidden = true;
   refs.historyMonthButton.setAttribute("aria-expanded", "false");
   refs.historyYearButton.setAttribute("aria-expanded", "false");
+  refs.historyOverviewYearButton.setAttribute("aria-expanded", "false");
 });
 
 refs.historyMonthButton.addEventListener("click", () => toggleHistoryFilter("month"));
 refs.historyYearButton.addEventListener("click", () => toggleHistoryFilter("year"));
 refs.historyMonthOptions.addEventListener("click", (event) => selectHistoryFilter("month", event));
 refs.historyYearOptions.addEventListener("click", (event) => selectHistoryFilter("year", event));
+refs.historyEntriesTab.addEventListener("click", () => setHistoryTab("entries"));
+refs.historyMonthsTab.addEventListener("click", () => setHistoryTab("months"));
+refs.historyOverviewYearButton.addEventListener("click", () => {
+  const isOpen = !refs.historyOverviewYearOptions.hidden;
+  refs.historyOverviewYearOptions.hidden = isOpen;
+  refs.historyOverviewYearButton.setAttribute("aria-expanded", String(!isOpen));
+});
+refs.historyOverviewYearOptions.addEventListener("click", (event) => {
+  const option = event.target.closest("[data-history-overview-year]");
+  if (!option) return;
+  historyOverviewYear = option.dataset.historyOverviewYear;
+  refs.historyOverviewYearLabel.textContent = option.textContent;
+  refs.historyOverviewYearOptions.hidden = true;
+  refs.historyOverviewYearButton.setAttribute("aria-expanded", "false");
+  renderHistoryOverview();
+});
+refs.historyMonthGrid.addEventListener("click", (event) => {
+  const monthCard = event.target.closest("[data-history-overview-month]");
+  if (!monthCard) return;
+  refs.historyYearFilter.value = historyOverviewYear;
+  refs.historyMonthFilter.value = monthCard.dataset.historyOverviewMonth;
+  renderHistoryFilters();
+  setHistoryTab("entries");
+  renderSpendings();
+});
 
 if (refs.assistantForm) {
   refs.assistantForm.addEventListener("submit", handleAssistantSubmit);
@@ -286,12 +333,35 @@ refs.currencyMenu.addEventListener("click", (event) => {
   render();
 });
 
+refs.snapshotPeriodButton.addEventListener("click", () => {
+  const opening = refs.snapshotPeriodMenu.hidden;
+  refs.snapshotPeriodMenu.hidden = !opening;
+  refs.snapshotPeriodButton.setAttribute("aria-expanded", String(opening));
+  refs.snapshotPeriodButton.classList.toggle("active", opening);
+});
+
+refs.snapshotPeriodMenu.addEventListener("click", (event) => {
+  const option = event.target.closest("[data-snapshot-period]");
+  if (!option) return;
+  snapshotPeriod = option.dataset.snapshotPeriod;
+  updateSnapshotPeriodButton();
+  refs.snapshotPeriodMenu.hidden = true;
+  refs.snapshotPeriodButton.setAttribute("aria-expanded", "false");
+  refs.snapshotPeriodButton.classList.remove("active");
+  render();
+});
+
 document.addEventListener("click", (event) => {
   if (!event.target.closest(".currency-control")) {
     refs.currencyMenu.hidden = true;
     refs.currencyButton.setAttribute("aria-expanded", "false");
     refs.currencyButton.setAttribute("aria-pressed", "false");
     refs.currencyButton.classList.remove("active");
+  }
+  if (!event.target.closest(".snapshot-period-control")) {
+    refs.snapshotPeriodMenu.hidden = true;
+    refs.snapshotPeriodButton.setAttribute("aria-expanded", "false");
+    refs.snapshotPeriodButton.classList.remove("active");
   }
 });
 
@@ -655,16 +725,15 @@ refreshRates();
 
 function render() {
   const currentMonth = todayValue().slice(0, 7);
-  const monthSpendings = state.spendings.filter((spending) => spending.date.startsWith(`${currentMonth}-`));
-  const totalsByCategory = groupTotals(monthSpendings);
+  const snapshotEntries = getSnapshotEntries(snapshotPeriod);
+  const totalsByCategory = groupTotals(snapshotEntries);
   const currentBudgets = getBudgetsForMonth(currentMonth);
   const budgetTotal = getBudgetTotalForMonth(currentMonth);
-  const spentTotal = sum(monthSpendings.map((spending) => spending.amount));
+  const spentTotal = sum(snapshotEntries.map((spending) => spending.amount));
 
   refs.budgetAvailable.textContent = formatMoney(budgetTotal - spentTotal);
   refs.budgetAvailable.className = getBudgetStatusClass(spentTotal, budgetTotal);
   refs.budgetTotal.textContent = formatMoney(budgetTotal);
-  refs.dashboardMonth.textContent = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(new Date());
 
   const budgetMonth = refs.budgetMonth.value || currentMonth;
   const budgetMonthSpendings = state.spendings.filter((spending) => spending.date.startsWith(`${budgetMonth}-`));
@@ -1088,6 +1157,43 @@ function renderHistoryFilters() {
   refs.historyYearLabel.textContent = yearLabel;
   refs.historyMonthOptions.innerHTML = [...refs.historyMonthFilter.options].map((option) => `<button class="category-option" type="button" role="option" data-history-value="${option.value}" data-history-label="${escapeHtml(option.textContent)}">${escapeHtml(option.textContent)}</button>`).join("");
   refs.historyYearOptions.innerHTML = [...refs.historyYearFilter.options].map((option) => `<button class="category-option" type="button" role="option" data-history-value="${option.value}" data-history-label="${escapeHtml(option.textContent)}">${escapeHtml(option.textContent)}</button>`).join("");
+  const overviewYears = [...new Set([todayValue().slice(0, 4), ...years])].sort().reverse();
+  if (!overviewYears.includes(historyOverviewYear)) historyOverviewYear = overviewYears[0];
+  refs.historyOverviewYearLabel.textContent = historyOverviewYear;
+  refs.historyOverviewYearOptions.innerHTML = overviewYears.map((year) => `<button class="category-option" type="button" role="option" data-history-overview-year="${year}">${year}</button>`).join("");
+  renderHistoryOverview();
+}
+
+function setHistoryTab(tab) {
+  const showMonths = tab === "months";
+  refs.historyEntriesPanel.hidden = showMonths;
+  refs.historyMonthsPanel.hidden = !showMonths;
+  refs.historyEntriesTab.classList.toggle("active", !showMonths);
+  refs.historyMonthsTab.classList.toggle("active", showMonths);
+  refs.historyEntriesTab.setAttribute("aria-selected", String(!showMonths));
+  refs.historyMonthsTab.setAttribute("aria-selected", String(showMonths));
+}
+
+function renderHistoryOverview() {
+  const monthNames = Array.from({ length: 12 }, (_, index) => new Intl.DateTimeFormat(undefined, { month: "long" }).format(new Date(2020, index, 1)));
+  const entries = [
+    ...state.spendings.map((entry) => ({ ...entry, type: "expense" })),
+    ...state.incomes.map((entry) => ({ ...entry, type: "income" }))
+  ];
+  refs.historyMonthGrid.innerHTML = monthNames.map((monthName, index) => {
+    const month = String(index + 1).padStart(2, "0");
+    const monthEntries = entries.filter((entry) => entry.date.startsWith(`${historyOverviewYear}-${month}-`));
+    const expenses = sum(monthEntries.filter((entry) => entry.type === "expense").map((entry) => entry.amount));
+    const income = sum(monthEntries.filter((entry) => entry.type === "income").map((entry) => entry.amount));
+    return `
+      <button class="history-month-card" type="button" data-history-overview-month="${month}" aria-label="View ${monthName} ${historyOverviewYear}">
+        <strong>${monthName}</strong>
+        <span>${monthEntries.length} transaction${monthEntries.length === 1 ? "" : "s"}</span>
+        <span class="history-month-expense">-${formatMoney(expenses)}</span>
+        <span class="history-month-income">+${formatMoney(income)}</span>
+      </button>
+    `;
+  }).join("");
 }
 
 function toggleHistoryFilter(type) {
@@ -1410,6 +1516,20 @@ function groupTotals(spendings) {
   }, {});
 }
 
+function getSnapshotEntries(period) {
+  const today = new Date(`${todayValue()}T00:00:00`);
+  let startDate = todayValue();
+  if (period === "weekly") {
+    const dayOfWeek = today.getDay();
+    const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    today.setDate(today.getDate() - daysSinceMonday);
+    startDate = formatDateKey(today);
+  } else if (period === "monthly") {
+    startDate = `${todayValue().slice(0, 7)}-01`;
+  }
+  return state.spendings.filter((spending) => spending.date >= startDate && spending.date <= todayValue());
+}
+
 function sum(values) {
   return values.reduce((total, value) => total + value, 0);
 }
@@ -1464,6 +1584,29 @@ function updateCurrencyButton() {
     const isSelected = currencyOption.dataset.currency === option[0];
     currencyOption.classList.toggle("selected", isSelected);
     currencyOption.setAttribute("aria-selected", String(isSelected));
+  });
+}
+
+function populateSnapshotPeriodOptions() {
+  const periods = [
+    ["daily", "Daily"],
+    ["weekly", "Weekly"],
+    ["monthly", "Monthly"]
+  ];
+  refs.snapshotPeriodMenu.innerHTML = periods.map(([value, label]) => `
+    <button class="currency-option" type="button" data-snapshot-period="${value}" role="option">
+      <span><strong>${label}</strong></span>
+    </button>
+  `).join("");
+}
+
+function updateSnapshotPeriodButton() {
+  const labels = { daily: "Daily", weekly: "Weekly", monthly: "Monthly" };
+  refs.snapshotPeriodLabel.textContent = labels[snapshotPeriod] || labels.monthly;
+  refs.snapshotPeriodMenu.querySelectorAll("[data-snapshot-period]").forEach((option) => {
+    const isSelected = option.dataset.snapshotPeriod === snapshotPeriod;
+    option.classList.toggle("selected", isSelected);
+    option.setAttribute("aria-selected", String(isSelected));
   });
 }
 
