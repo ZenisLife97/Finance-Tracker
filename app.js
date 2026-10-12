@@ -51,7 +51,8 @@ const defaultState = {
   spendings: [],
   incomes: [],
   goals: [],
-  events: []
+  events: [],
+  repeatExpenses: []
 };
 
 const state = loadState();
@@ -75,12 +76,18 @@ const refs = {
   spendingCategoryLabel: document.getElementById("spendingCategoryLabel"),
   spendingAmount: document.getElementById("spendingAmount"),
   spendingNote: document.getElementById("spendingNote"),
+  spendingRepeatToggle: document.getElementById("spendingRepeatToggle"),
+  spendingRepeatSettings: document.getElementById("spendingRepeatSettings"),
+  spendingRepeatStartDate: document.getElementById("spendingRepeatStartDate"),
   spendingList: document.getElementById("spendingList"),
   incomeForm: document.getElementById("incomeForm"),
   incomeDate: document.getElementById("incomeDate"),
   incomeSource: document.getElementById("incomeSource"),
   incomeAmount: document.getElementById("incomeAmount"),
   incomeNote: document.getElementById("incomeNote"),
+  incomeRepeatToggle: document.getElementById("incomeRepeatToggle"),
+  incomeRepeatSettings: document.getElementById("incomeRepeatSettings"),
+  incomeRepeatStartDate: document.getElementById("incomeRepeatStartDate"),
   entryTypeButton: document.getElementById("entryTypeButton"),
   entryTypeLabel: document.getElementById("entryTypeLabel"),
   entryTypeDescription: document.getElementById("entryTypeDescription"),
@@ -91,6 +98,7 @@ const refs = {
   goalDeadline: document.getElementById("goalDeadline"),
   goalSubmitButton: document.getElementById("goalSubmitButton"),
   goalList: document.getElementById("goalList"),
+  repeatExpenseList: document.getElementById("repeatExpenseList"),
   createGoalButton: document.getElementById("createGoalButton"),
   cancelGoalButton: document.getElementById("cancelGoalButton"),
   historyMonthFilter: document.getElementById("historyMonthFilter"),
@@ -118,6 +126,9 @@ const refs = {
   snapshotPeriodLabel: document.getElementById("snapshotPeriodLabel"),
   snapshotPeriodMenu: document.getElementById("snapshotPeriodMenu"),
   pageTitle: document.getElementById("pageTitle"),
+  viewBreadcrumb: document.getElementById("viewBreadcrumb"),
+  breadcrumbBack: document.getElementById("breadcrumbBack"),
+  breadcrumbCurrent: document.getElementById("breadcrumbCurrent"),
   assistantForm: document.getElementById("assistantForm"),
   assistantInput: document.getElementById("assistantInput"),
   assistantMessages: document.getElementById("assistantMessages"),
@@ -162,9 +173,88 @@ const refs = {
   deleteNoteDetail: document.getElementById("deleteNoteDetail")
 };
 
-document.querySelectorAll('input[type="number"][step="0.01"]').forEach((input) => {
-  input.addEventListener("blur", () => {
-    if (input.value !== "") input.value = Number(input.value).toFixed(2);
+const amountInputs = document.querySelectorAll("[data-amount-input]");
+
+function currencyPrefix() {
+  return {
+    MYR: "RM",
+    USD: "$",
+    EUR: "€",
+    GBP: "£",
+    SGD: "S$",
+    AUD: "A$",
+    JPY: "¥",
+    CNY: "¥",
+    HKD: "HK$",
+    THB: "฿",
+    INR: "₹",
+    KRW: "₩",
+    CAD: "C$",
+    NZD: "NZ$",
+    CHF: "CHF"
+  }[state.currency || DEFAULT_CURRENCY] || state.currency || DEFAULT_CURRENCY;
+}
+
+function digitsFromAmountValue(value) {
+  return String(value).replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+}
+
+function renderAmountInput(input) {
+  const digits = input.dataset.amountDigits || "";
+  input.value = `${currencyPrefix()}${digits ? (Number(digits) / 100).toFixed(2) : "0.00"}`;
+}
+
+function setAmountInputValue(input, displayAmount) {
+  const numericAmount = Number(displayAmount);
+  input.dataset.amountDigits = Number.isFinite(numericAmount) ? String(Math.round(numericAmount * 100)) : "";
+  renderAmountInput(input);
+}
+
+function readAmountInput(input) {
+  const digits = input.dataset.amountDigits;
+  if (digits !== undefined) return Number(digits || 0) / 100;
+  return Number(String(input.value).replace(/[^\d.-]/g, ""));
+}
+
+amountInputs.forEach((input) => {
+  input.dataset.amountDigits = "";
+  renderAmountInput(input);
+  input.addEventListener("keydown", (event) => {
+    if (/^\d$/.test(event.key)) {
+      event.preventDefault();
+      input.dataset.amountDigits = `${input.dataset.amountDigits || ""}${event.key}`.replace(/^0+(?=\d)/, "");
+      renderAmountInput(input);
+      return;
+    }
+    if (event.key === "Backspace" || event.key === "Delete") {
+      event.preventDefault();
+      input.dataset.amountDigits = (input.dataset.amountDigits || "").slice(0, -1);
+      renderAmountInput(input);
+      return;
+    }
+    if (event.key.length === 1 && !event.ctrlKey && !event.metaKey) event.preventDefault();
+  });
+  input.addEventListener("input", () => {
+    input.dataset.amountDigits = digitsFromAmountValue(input.value);
+    renderAmountInput(input);
+  });
+  input.addEventListener("paste", (event) => {
+    event.preventDefault();
+    const pastedDigits = event.clipboardData.getData("text").replace(/\D/g, "");
+    if (!pastedDigits) return;
+    input.dataset.amountDigits = `${input.dataset.amountDigits || ""}${pastedDigits}`.replace(/^0+(?=\d)/, "");
+    renderAmountInput(input);
+  });
+});
+
+document.querySelectorAll("form").forEach((form) => {
+  form.addEventListener("reset", () => {
+    setTimeout(() => {
+      form.querySelectorAll("[data-amount-input]").forEach((input) => {
+        input.dataset.amountDigits = "";
+        renderAmountInput(input);
+      });
+    }, 0);
   });
 });
 
@@ -179,6 +269,7 @@ let editingGoalId = null;
 let editingEventId = null;
 let editingSpendingId = null;
 let editingIncomeId = null;
+let editingRepeatId = null;
 let historyOverviewYear = todayValue().slice(0, 4);
 let snapshotPeriod = "monthly";
 let historyReady = false;
@@ -186,6 +277,10 @@ const assistantHistory = [];
 
 refs.spendingDate.value = todayValue();
 refs.incomeDate.value = todayValue();
+refs.spendingRepeatStartDate.value = todayValue();
+refs.incomeRepeatStartDate.value = todayValue();
+refs.spendingRepeatStartDate.required = false;
+refs.incomeRepeatStartDate.required = false;
 setEntryType("expense");
 refs.budgetMonth.value = todayValue().slice(0, 7);
 refs.monthlyBudgetMonth.value = todayValue().slice(0, 7);
@@ -207,6 +302,16 @@ refs.viewButtons.forEach((button) => {
 
 refs.entryTypeButton.addEventListener("click", () => {
   setEntryType(refs.entryTypeLabel.textContent === "Expense" ? "income" : "expense");
+});
+
+refs.spendingRepeatToggle.addEventListener("change", () => {
+  refs.spendingRepeatSettings.hidden = !refs.spendingRepeatToggle.checked;
+  refs.spendingRepeatStartDate.required = refs.spendingRepeatToggle.checked;
+});
+
+refs.incomeRepeatToggle.addEventListener("change", () => {
+  refs.incomeRepeatSettings.hidden = !refs.incomeRepeatToggle.checked;
+  refs.incomeRepeatStartDate.required = refs.incomeRepeatToggle.checked;
 });
 
 refs.spendingCategoryButton.addEventListener("click", () => {
@@ -273,7 +378,11 @@ if (refs.assistantForm) {
 initializeViewHistory();
 showView(activeView);
 
-window.addEventListener("pageshow", syncLocalData);
+window.addEventListener("pageshow", () => {
+  processRepeatExpenses();
+  syncLocalData();
+  render();
+});
 window.addEventListener("pagehide", syncLocalData);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") syncLocalData();
@@ -289,6 +398,10 @@ refs.cancelExit.addEventListener("click", closeExitModal);
 refs.exitModal.addEventListener("click", (event) => {
   if (event.target === refs.exitModal) closeExitModal();
 });
+refs.breadcrumbBack.addEventListener("click", (event) => {
+  event.preventDefault();
+  returnToPreviousView();
+});
 
 window.addEventListener("popstate", (event) => {
   if (event.state?.exitBoundary) {
@@ -299,7 +412,7 @@ window.addEventListener("popstate", (event) => {
 
   const viewName = event.state?.view;
   if (viewName) {
-    showView(viewName);
+    showView(viewName, event.state.previousView);
     return;
   }
 
@@ -368,7 +481,7 @@ document.addEventListener("click", (event) => {
 refs.budgetForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const category = refs.budgetCategory.value.trim();
-  const amount = Number(refs.budgetAmount.value);
+  const amount = readAmountInput(refs.budgetAmount);
   const month = refs.budgetMonth.value;
 
   if (!category || !month || !Number.isFinite(amount) || amount < 0) return;
@@ -386,11 +499,12 @@ refs.budgetMonth.addEventListener("change", render);
 refs.monthlyBudgetForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const month = refs.monthlyBudgetMonth.value;
-  const amount = Number(refs.monthlyBudgetAmount.value);
+  const amount = readAmountInput(refs.monthlyBudgetAmount);
   if (!month || !Number.isFinite(amount) || amount < 0) return;
 
   state.monthlyTotals[month] = toBaseAmount(amount);
-  refs.monthlyBudgetAmount.value = "";
+  refs.monthlyBudgetAmount.dataset.amountDigits = "";
+  renderAmountInput(refs.monthlyBudgetAmount);
   saveState();
   render();
 });
@@ -398,11 +512,44 @@ refs.monthlyBudgetForm.addEventListener("submit", (event) => {
 refs.spendingForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const category = refs.spendingCategory.value.trim();
-  const amount = Number(refs.spendingAmount.value);
+  const amount = readAmountInput(refs.spendingAmount);
   const date = refs.spendingDate.value;
   const note = refs.spendingNote.value.trim();
+  const repeatEnabled = refs.spendingRepeatToggle.checked;
+  const repeatCadence = getSelectedRepeatCadence("spendingRepeatCadence");
+  const repeatStartDate = refs.spendingRepeatStartDate.value;
 
   if (!category || !date || !Number.isFinite(amount) || amount <= 0) return;
+
+  if (editingRepeatId) {
+    if (!repeatEnabled) {
+      state.repeatExpenses = state.repeatExpenses.filter((item) => item.id !== editingRepeatId);
+      editingRepeatId = null;
+      resetRepeatForm(refs.spendingForm, refs.spendingRepeatToggle, refs.spendingRepeatSettings, refs.spendingRepeatStartDate);
+      saveState();
+      render();
+      showConfirmation("Repeat expense removed");
+      returnToPreviousView();
+      return;
+    }
+    const repeatExpense = state.repeatExpenses.find((item) => item.id === editingRepeatId);
+    if (repeatExpense) Object.assign(repeatExpense, {
+      type: "expense",
+      category,
+      amount: toBaseAmount(amount),
+      note,
+      cadence: repeatCadence,
+      startDate: repeatStartDate,
+      nextDate: repeatExpense.nextDate < repeatStartDate ? repeatStartDate : repeatExpense.nextDate
+    });
+    editingRepeatId = null;
+    resetRepeatForm(refs.spendingForm, refs.spendingRepeatToggle, refs.spendingRepeatSettings, refs.spendingRepeatStartDate);
+    saveState();
+    render();
+    showConfirmation("Repeat expense updated successfully");
+    returnToPreviousView();
+    return;
+  }
 
   const wasEditing = Boolean(editingSpendingId);
   if (wasEditing) {
@@ -411,9 +558,18 @@ refs.spendingForm.addEventListener("submit", (event) => {
   } else {
     state.spendings.unshift({ id: createId(), category, amount: toBaseAmount(amount), date, note });
   }
+  if (repeatEnabled) state.repeatExpenses.unshift(createRepeatExpense({
+    type: "expense",
+    category,
+    amount,
+    note,
+    cadence: repeatCadence,
+    startDate: repeatStartDate || date,
+    firstDate: date
+  }));
 
   editingSpendingId = null;
-  refs.spendingForm.reset();
+  resetRepeatForm(refs.spendingForm, refs.spendingRepeatToggle, refs.spendingRepeatSettings, refs.spendingRepeatStartDate);
   refs.spendingCategoryLabel.textContent = "Choose a category";
   refs.spendingCategory.value = "";
   refs.spendingDate.value = todayValue();
@@ -421,7 +577,7 @@ refs.spendingForm.addEventListener("submit", (event) => {
   saveState();
   render();
   showConfirmation(wasEditing ? "Expense updated successfully" : "Expense added successfully");
-  navigateToView("dashboard");
+  returnToPreviousView();
 });
 
 refs.spendingList.addEventListener("click", (event) => {
@@ -436,7 +592,7 @@ refs.spendingList.addEventListener("click", (event) => {
       setEntryType("income");
       refs.incomeDate.value = entry.date;
       refs.incomeSource.value = entry.source;
-      refs.incomeAmount.value = fromBaseAmount(entry.amount);
+      setAmountInputValue(refs.incomeAmount, fromBaseAmount(entry.amount));
       refs.incomeNote.value = entry.note || "";
       refs.incomeForm.querySelector("button[type=submit]").textContent = "Save income";
     } else {
@@ -444,7 +600,7 @@ refs.spendingList.addEventListener("click", (event) => {
       refs.spendingDate.value = entry.date;
       refs.spendingCategory.value = entry.category;
       refs.spendingCategoryLabel.textContent = entry.category;
-      refs.spendingAmount.value = fromBaseAmount(entry.amount);
+      setAmountInputValue(refs.spendingAmount, fromBaseAmount(entry.amount));
       refs.spendingNote.value = entry.note || "";
       refs.spendingForm.querySelector("button[type=submit]").textContent = "Save spending";
     }
@@ -474,8 +630,41 @@ refs.spendingList.addEventListener("click", (event) => {
 refs.incomeForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const source = refs.incomeSource.value.trim();
-  const amount = Number(refs.incomeAmount.value);
+  const amount = readAmountInput(refs.incomeAmount);
+  const repeatEnabled = refs.incomeRepeatToggle.checked;
+  const repeatCadence = getSelectedRepeatCadence("incomeRepeatCadence");
+  const repeatStartDate = refs.incomeRepeatStartDate.value;
   if (!source || !refs.incomeDate.value || !Number.isFinite(amount) || amount <= 0) return;
+
+  if (editingRepeatId) {
+    if (!repeatEnabled) {
+      state.repeatExpenses = state.repeatExpenses.filter((item) => item.id !== editingRepeatId);
+      editingRepeatId = null;
+      resetRepeatForm(refs.incomeForm, refs.incomeRepeatToggle, refs.incomeRepeatSettings, refs.incomeRepeatStartDate);
+      saveState();
+      render();
+      showConfirmation("Repeat income removed");
+      returnToPreviousView();
+      return;
+    }
+    const repeatExpense = state.repeatExpenses.find((item) => item.id === editingRepeatId);
+    if (repeatExpense) Object.assign(repeatExpense, {
+      type: "income",
+      source,
+      amount: toBaseAmount(amount),
+      note: refs.incomeNote.value.trim(),
+      cadence: repeatCadence,
+      startDate: repeatStartDate,
+      nextDate: repeatExpense.nextDate < repeatStartDate ? repeatStartDate : repeatExpense.nextDate
+    });
+    editingRepeatId = null;
+    resetRepeatForm(refs.incomeForm, refs.incomeRepeatToggle, refs.incomeRepeatSettings, refs.incomeRepeatStartDate);
+    saveState();
+    render();
+    showConfirmation("Repeat income updated successfully");
+    returnToPreviousView();
+    return;
+  }
 
   const wasEditing = Boolean(editingIncomeId);
   if (wasEditing) {
@@ -484,8 +673,17 @@ refs.incomeForm.addEventListener("submit", (event) => {
   } else {
     state.incomes.unshift({ id: createId(), source, amount: toBaseAmount(amount), date: refs.incomeDate.value, note: refs.incomeNote.value.trim() });
   }
+  if (repeatEnabled) state.repeatExpenses.unshift(createRepeatExpense({
+    type: "income",
+    source,
+    amount,
+    note: refs.incomeNote.value.trim(),
+    cadence: repeatCadence,
+    startDate: repeatStartDate || refs.incomeDate.value,
+    firstDate: refs.incomeDate.value
+  }));
   editingIncomeId = null;
-  refs.incomeForm.reset();
+  resetRepeatForm(refs.incomeForm, refs.incomeRepeatToggle, refs.incomeRepeatSettings, refs.incomeRepeatStartDate);
   refs.incomeDate.value = todayValue();
   refs.incomeForm.querySelector("button[type=submit]").textContent = "Add income";
   saveState();
@@ -497,8 +695,8 @@ refs.incomeForm.addEventListener("submit", (event) => {
 refs.goalForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const name = refs.goalName.value.trim();
-  const target = Number(refs.goalTarget.value);
-  const saved = Number(refs.goalSaved.value);
+  const target = readAmountInput(refs.goalTarget);
+  const saved = readAmountInput(refs.goalSaved);
   if (!name || !Number.isFinite(target) || target <= 0 || !Number.isFinite(saved) || saved < 0) return;
 
   const wasEditing = Boolean(editingGoalId);
@@ -552,8 +750,8 @@ refs.goalList.addEventListener("click", (event) => {
     if (!goal) return;
     editingGoalId = goal.id;
     refs.goalName.value = goal.name;
-    refs.goalTarget.value = fromBaseAmount(goal.target);
-    refs.goalSaved.value = fromBaseAmount(goal.saved);
+    setAmountInputValue(refs.goalTarget, fromBaseAmount(goal.target));
+    setAmountInputValue(refs.goalSaved, fromBaseAmount(goal.saved));
     refs.goalDeadline.value = goal.deadline || "";
     refs.goalSubmitButton.textContent = "Save changes";
     refs.goalList.hidden = true;
@@ -567,6 +765,51 @@ refs.goalList.addEventListener("click", (event) => {
   pendingDeleteType = "goal";
   refs.deleteModalTitle.textContent = "Delete goal?";
   refs.deleteModalDescription.textContent = "This savings goal will be permanently removed.";
+  refs.deleteModal.hidden = false;
+});
+
+refs.repeatExpenseList.addEventListener("click", (event) => {
+  const editButton = event.target.closest("[data-edit-repeat]");
+  const deleteButton = event.target.closest("[data-delete-repeat]");
+  const repeatExpense = state.repeatExpenses.find((item) => item.id === (editButton?.dataset.editRepeat || deleteButton?.dataset.deleteRepeat));
+  if (!repeatExpense) return;
+
+  if (editButton) {
+    editingRepeatId = repeatExpense.id;
+    editingSpendingId = null;
+    editingIncomeId = null;
+    if (repeatExpense.type === "income") {
+      setEntryType("income");
+      refs.incomeSource.value = repeatExpense.source;
+      setAmountInputValue(refs.incomeAmount, fromBaseAmount(repeatExpense.amount));
+      refs.incomeNote.value = repeatExpense.note || "";
+      refs.incomeRepeatToggle.checked = true;
+      refs.incomeRepeatSettings.hidden = false;
+      refs.incomeRepeatStartDate.required = true;
+      refs.incomeRepeatStartDate.value = repeatExpense.startDate;
+      setRepeatCadence("incomeRepeatCadence", repeatExpense.cadence);
+      refs.incomeForm.querySelector("button[type=submit]").textContent = "Save repeat income";
+    } else {
+      setEntryType("expense");
+      refs.spendingCategory.value = repeatExpense.category;
+      refs.spendingCategoryLabel.textContent = repeatExpense.category;
+      setAmountInputValue(refs.spendingAmount, fromBaseAmount(repeatExpense.amount));
+      refs.spendingNote.value = repeatExpense.note || "";
+      refs.spendingRepeatToggle.checked = true;
+      refs.spendingRepeatSettings.hidden = false;
+      refs.spendingRepeatStartDate.required = true;
+      refs.spendingRepeatStartDate.value = repeatExpense.startDate;
+      setRepeatCadence("spendingRepeatCadence", repeatExpense.cadence);
+      refs.spendingForm.querySelector("button[type=submit]").textContent = "Save repeat expense";
+    }
+    navigateToView("expense");
+    return;
+  }
+
+  pendingDeleteId = repeatExpense.id;
+  pendingDeleteType = "repeat";
+  refs.deleteModalTitle.textContent = "Delete repeat?";
+  refs.deleteModalDescription.textContent = "This scheduled entry will be permanently removed.";
   refs.deleteModal.hidden = false;
 });
 
@@ -589,11 +832,13 @@ refs.confirmDelete.addEventListener("click", () => {
     state.incomes = state.incomes.filter((income) => income.id !== pendingDeleteId);
   } else if (pendingDeleteType === "goal") {
     state.goals = state.goals.filter((goal) => goal.id !== pendingDeleteId);
+  } else if (pendingDeleteType === "repeat") {
+    state.repeatExpenses = state.repeatExpenses.filter((repeatExpense) => repeatExpense.id !== pendingDeleteId);
   }
   saveState();
   closeDeleteModal();
   render();
-  const deletedLabel = deletingEvent ? "Event" : pendingDeleteType === "income" ? "Income" : pendingDeleteType === "goal" ? "Goal" : "Expense";
+  const deletedLabel = deletingEvent ? "Event" : pendingDeleteType === "income" ? "Income" : pendingDeleteType === "goal" ? "Goal" : pendingDeleteType === "repeat" ? "Repeat" : "Expense";
   showConfirmation(`${deletedLabel} deleted`);
 });
 
@@ -648,7 +893,7 @@ refs.eventCalendar.addEventListener("click", (event) => {
 refs.eventForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const name = refs.eventName.value.trim();
-  const budget = Number(refs.eventBudget.value);
+  const budget = readAmountInput(refs.eventBudget);
   const month = eventMonthValue;
   const dates = [...selectedEventDays].sort();
   if (!name || !month || !dates.length || !Number.isFinite(budget) || budget < 0) return;
@@ -686,7 +931,7 @@ refs.eventList.addEventListener("click", (event) => {
     if (!savedEvent) return;
     editingEventId = savedEvent.id;
     refs.eventName.value = savedEvent.name;
-    refs.eventBudget.value = fromBaseAmount(savedEvent.budget);
+    setAmountInputValue(refs.eventBudget, fromBaseAmount(savedEvent.budget));
     eventMonthValue = savedEvent.month;
     selectedEventDays = new Set(savedEvent.dates);
     eventRangeStart = null;
@@ -719,6 +964,7 @@ function setEventFormMode(isFormVisible) {
   refs.eventSummaryContent.hidden = isFormVisible;
 }
 
+processRepeatExpenses();
 render();
 registerServiceWorker();
 refreshRates();
@@ -746,12 +992,13 @@ function render() {
   renderHistoryFilters();
   renderSpendings();
   renderGoals();
+  renderRepeatExpenses();
   renderChart(totalsByCategory, spentTotal);
   renderCategories();
   renderEvents();
 }
 
-function showView(viewName) {
+function showView(viewName, previousView = "dashboard") {
   const titles = {
     dashboard: "Overview",
     expense: "Add",
@@ -759,10 +1006,17 @@ function showView(viewName) {
     history: "History",
     events: "Events",
     goals: "Goals",
+    profile: "Profile",
+    "repeat-expenses": "Repeat Expenses",
     assistant: "AI Assistant"
   };
   activeView = titles[viewName] ? viewName : "dashboard";
   refs.pageTitle.textContent = titles[activeView];
+  const breadcrumbView = titles[previousView] ? previousView : "dashboard";
+  refs.viewBreadcrumb.hidden = activeView === "dashboard";
+  refs.breadcrumbBack.textContent = titles[breadcrumbView];
+  refs.breadcrumbBack.setAttribute("aria-label", `Back to ${titles[breadcrumbView]}`);
+  refs.breadcrumbCurrent.textContent = titles[activeView];
   refs.viewPanels.forEach((panel) => panel.classList.toggle("active", panel.dataset.viewPanel === activeView));
   refs.viewButtons.forEach((button) => {
     const isActive = button.dataset.view === activeView;
@@ -865,8 +1119,17 @@ function initializeViewHistory() {
 
 function navigateToView(viewName) {
   if (!historyReady || viewName === activeView) return;
-  history.pushState({ view: viewName }, "", window.location.href);
-  showView(viewName);
+  history.pushState({ view: viewName, previousView: activeView }, "", window.location.href);
+  showView(viewName, activeView);
+}
+
+function returnToPreviousView() {
+  if (activeView === "dashboard") return;
+  if (historyReady && history.state?.view === activeView) {
+    history.back();
+    return;
+  }
+  showView("dashboard");
 }
 
 function closeExitModal() {
@@ -1014,6 +1277,79 @@ function setEntryType(type) {
   requestAnimationFrame(() => activeForm.classList.add("entry-form-switching"));
 }
 
+function getSelectedRepeatCadence(name) {
+  return document.querySelector(`input[name="${name}"]:checked`)?.value || "monthly";
+}
+
+function setRepeatCadence(name, cadence) {
+  const option = document.querySelector(`input[name="${name}"][value="${cadence}"]`);
+  if (option) option.checked = true;
+}
+
+function resetRepeatForm(form, toggle, settings, startDate) {
+  form.reset();
+  toggle.checked = false;
+  settings.hidden = true;
+  startDate.required = false;
+  startDate.value = todayValue();
+}
+
+function createRepeatExpense({ type, category, source, amount, note, cadence, startDate, firstDate }) {
+  const nextDate = startDate > firstDate ? startDate : addRepeatDate(firstDate, cadence);
+  return {
+    id: createId(),
+    type,
+    category: category || "",
+    source: source || "",
+    amount: toBaseAmount(amount),
+    note,
+    cadence,
+    startDate,
+    nextDate
+  };
+}
+
+function addRepeatDate(dateValue, cadence) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  if (cadence === "daily") date.setDate(date.getDate() + 1);
+  if (cadence === "weekly") date.setDate(date.getDate() + 7);
+  if (cadence === "monthly") date.setMonth(date.getMonth() + 1);
+  if (cadence === "yearly") date.setFullYear(date.getFullYear() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function processRepeatExpenses() {
+  const today = todayValue();
+  let changed = false;
+  state.repeatExpenses.forEach((repeatExpense) => {
+    if (!repeatExpense.nextDate || !repeatExpense.cadence) return;
+    let occurrences = 0;
+    while (repeatExpense.nextDate <= today && occurrences < 1000) {
+      if (repeatExpense.type === "income") {
+        state.incomes.unshift({
+          id: createId(),
+          source: repeatExpense.source,
+          amount: repeatExpense.amount,
+          date: repeatExpense.nextDate,
+          note: repeatExpense.note || ""
+        });
+      } else {
+        state.spendings.unshift({
+          id: createId(),
+          category: repeatExpense.category,
+          amount: repeatExpense.amount,
+          date: repeatExpense.nextDate,
+          note: repeatExpense.note || ""
+        });
+      }
+      repeatExpense.nextDate = addRepeatDate(repeatExpense.nextDate, repeatExpense.cadence);
+      occurrences += 1;
+      changed = true;
+    }
+  });
+  if (changed) saveState();
+}
+
 function showConfirmation(message) {
   refs.confirmationToast.textContent = message;
   refs.confirmationToast.hidden = false;
@@ -1139,6 +1475,34 @@ function renderGoals() {
       `;
     }).join("")
     : `<p class="budget-meta">No goals created yet.</p>`;
+}
+
+function renderRepeatExpenses() {
+  refs.repeatExpenseList.innerHTML = state.repeatExpenses.length
+    ? state.repeatExpenses.map((repeatExpense) => {
+      const label = repeatExpense.type === "income" ? repeatExpense.source : repeatExpense.category;
+      const kind = repeatExpense.type === "income" ? "Income" : "Expense";
+      return `
+        <article class="repeat-expense-item">
+          <div class="transaction-top">
+            <div>
+              <div class="transaction-title">${escapeHtml(label)}</div>
+              <div class="transaction-meta">${kind} • ${repeatExpense.cadence} • Starts ${formatDate(repeatExpense.startDate)}</div>
+            </div>
+            <strong class="${repeatExpense.type === "income" ? "income-amount" : "expense-amount"}">${repeatExpense.type === "income" ? "+" : "-"}${formatMoney(repeatExpense.amount)}</strong>
+          </div>
+          <div class="repeat-expense-details">
+            <span>${escapeHtml(repeatExpense.note || "No note")}</span>
+            <span>Next: ${formatDate(repeatExpense.nextDate)}</span>
+          </div>
+          <div class="budget-actions">
+            <button class="icon-button" type="button" data-edit-repeat="${repeatExpense.id}" aria-label="Edit repeat ${escapeHtml(label)}" title="Edit repeat">✎</button>
+            <button class="icon-button delete-icon" type="button" data-delete-repeat="${repeatExpense.id}" aria-label="Delete repeat ${escapeHtml(label)}" title="Delete repeat">&#128465;</button>
+          </div>
+        </article>
+      `;
+    }).join("")
+    : `<p class="budget-meta">No repeat expenses or income set yet.</p>`;
 }
 
 function renderHistoryFilters() {
@@ -1585,6 +1949,7 @@ function updateCurrencyButton() {
     currencyOption.classList.toggle("selected", isSelected);
     currencyOption.setAttribute("aria-selected", String(isSelected));
   });
+  amountInputs.forEach((input) => renderAmountInput(input));
 }
 
 function populateSnapshotPeriodOptions() {
@@ -1693,6 +2058,7 @@ function loadState() {
       incomes: Array.isArray(parsed.incomes) ? parsed.incomes : [],
       goals: Array.isArray(parsed.goals) ? parsed.goals : [],
       events: Array.isArray(parsed.events) ? parsed.events : [],
+      repeatExpenses: Array.isArray(parsed.repeatExpenses) ? parsed.repeatExpenses : [],
       currency: CURRENCY_OPTIONS.some(([code]) => code === parsed.currency) ? parsed.currency : DEFAULT_CURRENCY
     };
   } catch (error) {
@@ -1728,6 +2094,7 @@ function cloneDefaultState() {
     incomes: [],
     goals: [],
     events: [],
+    repeatExpenses: [],
     currency: DEFAULT_CURRENCY
   };
 }

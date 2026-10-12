@@ -1,4 +1,4 @@
-# Finance Tracker
+# FinCloud
 
 ## AI assistant setup
 

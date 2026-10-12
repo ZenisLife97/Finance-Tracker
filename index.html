@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0f172a" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <title>Finance Tracker</title>
+    <title>FinCloud</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap" rel="stylesheet" />
@@ -26,7 +26,7 @@
     </div>
     <div id="exitModal" class="modal-backdrop" role="presentation" hidden>
       <section class="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="exitModalTitle">
-        <h2 id="exitModalTitle">Exit Finance Tracker?</h2>
+        <h2 id="exitModalTitle">Exit FinCloud?</h2>
         <div class="modal-actions">
           <button id="cancelExit" class="ghost modal-cancel" type="button">Cancel</button>
         </div>
@@ -35,7 +35,12 @@
     <main class="app-shell">
       <header class="app-header">
         <div>
-          <p class="eyebrow">Finance Tracker</p>
+          <nav id="viewBreadcrumb" class="view-breadcrumb" aria-label="Breadcrumb" hidden>
+            <a id="breadcrumbBack" href="#"></a>
+            <span aria-hidden="true">/</span>
+            <strong id="breadcrumbCurrent"></strong>
+          </nav>
+          <p class="eyebrow">FinCloud</p>
           <h1 id="pageTitle">Overview</h1>
           <p class="status-line"><span aria-hidden="true"></span> Local data <strong>•</strong> Sync ready</p>
         </div>
@@ -85,7 +90,7 @@
           <button class="action-button" type="button" data-view="expense"><span class="action-icon">＋</span><span>Add</span></button>
           <button class="action-button" type="button" data-view="history"><span class="action-icon">↺</span><span>History</span></button>
           <button class="action-button" type="button" data-view="events"><span class="action-icon">◇</span><span>Events</span></button>
-          <button class="action-button" type="button" data-view="goals"><span class="action-icon">◎</span><span>Goals</span></button>
+          <button class="action-button" type="button" data-view="profile"><span class="action-icon">◎</span><span>Profile</span></button>
         </nav>
       </section>
 
@@ -103,7 +108,7 @@
               </label>
               <label>
                 Total amount
-                <input id="monthlyBudgetAmount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" required />
+                <input id="monthlyBudgetAmount" name="amount" type="text" inputmode="decimal" data-amount-input placeholder="RM0.00" required />
               </label>
               <button type="submit">Save monthly total</button>
             </form>
@@ -125,7 +130,7 @@
               </label>
               <label>
                 Amount
-                <input id="budgetAmount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" required />
+                <input id="budgetAmount" name="amount" type="text" inputmode="decimal" data-amount-input placeholder="RM0.00" required />
               </label>
               <button type="submit">Save budget</button>
             </form>
@@ -158,21 +163,53 @@
             </label>
             <label>
               Amount
-              <input id="spendingAmount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" required />
+              <input id="spendingAmount" name="amount" type="text" inputmode="decimal" data-amount-input placeholder="RM0.00" required />
             </label>
             <label>
               Note
               <input id="spendingNote" name="note" type="text" placeholder="Lunch at cafe" />
             </label>
+            <label class="repeat-toggle"><input id="spendingRepeatToggle" type="checkbox" /> <span>Set repeat</span></label>
+            <div id="spendingRepeatSettings" class="repeat-settings" hidden>
+              <div class="repeat-options" role="radiogroup" aria-label="Repeat frequency">
+                <label><input type="radio" name="spendingRepeatCadence" value="daily" checked /> Daily</label>
+                <label><input type="radio" name="spendingRepeatCadence" value="weekly" /> Weekly</label>
+                <label><input type="radio" name="spendingRepeatCadence" value="monthly" /> Monthly</label>
+                <label><input type="radio" name="spendingRepeatCadence" value="yearly" /> Yearly</label>
+              </div>
+              <label>Start date<input id="spendingRepeatStartDate" type="date" required /></label>
+            </div>
             <button type="submit">Add spending</button>
           </form>
           <form id="incomeForm" class="stack">
             <label>Date<input id="incomeDate" name="date" type="date" required /></label>
             <label>Source<input id="incomeSource" name="source" type="text" placeholder="Salary or freelance work" required /></label>
-            <label>Amount<input id="incomeAmount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" required /></label>
+            <label>Amount<input id="incomeAmount" name="amount" type="text" inputmode="decimal" data-amount-input placeholder="RM0.00" required /></label>
             <label>Note<input id="incomeNote" name="note" type="text" placeholder="Optional note" /></label>
+            <label class="repeat-toggle"><input id="incomeRepeatToggle" type="checkbox" /> <span>Set repeat</span></label>
+            <div id="incomeRepeatSettings" class="repeat-settings" hidden>
+              <div class="repeat-options" role="radiogroup" aria-label="Repeat frequency">
+                <label><input type="radio" name="incomeRepeatCadence" value="daily" checked /> Daily</label>
+                <label><input type="radio" name="incomeRepeatCadence" value="weekly" /> Weekly</label>
+                <label><input type="radio" name="incomeRepeatCadence" value="monthly" /> Monthly</label>
+                <label><input type="radio" name="incomeRepeatCadence" value="yearly" /> Yearly</label>
+              </div>
+              <label>Start date<input id="incomeRepeatStartDate" type="date" required /></label>
+            </div>
             <button type="submit">Add income</button>
           </form>
+        </article>
+      </section>
+
+      <section class="view" data-view-panel="profile">
+        <article class="panel profile-panel">
+          <div class="panel-header">
+            <p>Manage your savings goals and scheduled transactions.</p>
+          </div>
+          <div class="profile-actions">
+            <button class="profile-action" type="button" data-view="goals"><span class="action-icon">◎</span><span>Goals</span></button>
+            <button class="profile-action" type="button" data-view="repeat-expenses"><span class="action-icon">↻</span><span>Repeat Expenses</span></button>
+          </div>
         </article>
       </section>
 
@@ -239,12 +276,21 @@
           <button id="createGoalButton" class="goal-create-button icon-button create-icon" type="button" aria-label="Create goal" title="Create goal">+</button>
           <form id="goalForm" class="stack" hidden>
             <label>Goal name<input id="goalName" name="name" type="text" placeholder="Emergency fund" required /></label>
-            <label>Target amount<input id="goalTarget" name="target" type="number" min="0.01" step="0.01" placeholder="0.00" required /></label>
-            <label>Amount saved<input id="goalSaved" name="saved" type="number" min="0" step="0.01" placeholder="0.00" required /></label>
+            <label>Target amount<input id="goalTarget" name="target" type="text" inputmode="decimal" data-amount-input placeholder="RM0.00" required /></label>
+            <label>Amount saved<input id="goalSaved" name="saved" type="text" inputmode="decimal" data-amount-input placeholder="RM0.00" required /></label>
             <label>Target date<input id="goalDeadline" name="deadline" type="date" /></label>
             <button id="goalSubmitButton" type="submit">Create goal</button>
             <button id="cancelGoalButton" class="ghost" type="button">Cancel</button>
           </form>
+        </article>
+      </section>
+
+      <section class="view" data-view-panel="repeat-expenses">
+        <article class="panel">
+          <div class="panel-header">
+            <p>Review and manage scheduled expenses and income.</p>
+          </div>
+          <div id="repeatExpenseList" class="repeat-expense-list"></div>
         </article>
       </section>
 
@@ -278,7 +324,7 @@
             </label>
             <label>
               Budget
-              <input id="eventBudget" name="budget" type="number" min="0" step="0.01" placeholder="0.00" required />
+              <input id="eventBudget" name="budget" type="text" inputmode="decimal" data-amount-input placeholder="RM0.00" required />
             </label>
             <div class="calendar-editor">
               <div class="calendar-toolbar">

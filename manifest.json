@@ -1,6 +1,6 @@
 {
-  "name": "Finance Tracker",
-  "short_name": "Finance",
+  "name": "FinCloud",
+  "short_name": "FinCloud",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#0b1120",

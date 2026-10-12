@@ -105,5 +105,5 @@ function sendJson(response, status, payload) {
 }
 
 server.listen(port, () => {
-  console.log(`Finance Tracker running at http://localhost:${port}`);
+  console.log(`FinCloud running at http://localhost:${port}`);
 });

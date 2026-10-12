@@ -681,6 +681,36 @@ canvas {
   letter-spacing: 0;
 }
 
+.view-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.5rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.view-breadcrumb[hidden] {
+  display: none;
+}
+
+.view-breadcrumb a {
+  color: var(--muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.view-breadcrumb a:hover,
+.view-breadcrumb a:focus-visible {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.view-breadcrumb strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
 .status-line {
   display: flex;
   align-items: center;
@@ -1458,6 +1488,93 @@ canvas {
 .action-button:hover,
 .action-button.active {
   border-color: var(--accent);
+}
+
+.profile-actions {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.profile-action {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 4rem;
+  padding: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel-2);
+  color: var(--text);
+  text-align: left;
+}
+
+.profile-action:hover,
+.profile-action:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.repeat-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.repeat-toggle input,
+.repeat-options input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.repeat-settings {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.repeat-settings[hidden] {
+  display: none;
+}
+
+.repeat-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.repeat-options label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.repeat-expense-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.repeat-expense-item {
+  padding: 0.9rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.repeat-expense-details {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.7rem;
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .action-icon {
